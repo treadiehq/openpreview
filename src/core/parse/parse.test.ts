@@ -340,7 +340,7 @@ describe("parseGitHubPR", () => {
   test("handles fixture file", async () => {
     const raw = await Bun.file("fixtures/sample-pr.txt").text();
     const doc = parseGitHubPR(raw, stdin);
-    expect(doc.title).toContain("preview CLI");
+    expect(doc.title).toContain("OpenPreview CLI");
     expect(doc.author).toBe("dantelex");
   });
 });

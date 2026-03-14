@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * preview — terminal-native preview for URLs, markdown, JSON, and stdin.
+ * OpenPreview — terminal-native preview for URLs, markdown, JSON, and stdin.
  * Usage: preview [url|file] | cat file | preview
  */
 
@@ -14,7 +14,7 @@ import { runApp } from "./ui/app.ts";
 
 function showHelp() {
   console.log(`
-preview — terminal-native preview for URLs, markdown, JSON, and command output.
+OpenPreview — terminal-native preview for URLs, markdown, JSON, and command output.
 
 Usage:
   preview <url>              Preview a web page (docs mode)
@@ -47,12 +47,12 @@ In-app:
   i                        Toggle inspect overlay
   ?                        Toggle keybinding help
 
-Modes: Docs (HTML), Dashboard, API (JSON), Markdown, GitHub PR (Phase 2), plain text.
+Modes: Docs (HTML), Dashboard, API (JSON), Markdown, GitHub PR, plain text.
 `);
 }
 
 function showVersion() {
-  console.log(`preview ${VERSION}`);
+  console.log(`OpenPreview ${VERSION}`);
 }
 
 async function main() {
@@ -70,7 +70,7 @@ async function main() {
   const parsed = parseCliArgs(args);
 
   if (parsed.error) {
-    console.error(`preview error: ${parsed.error}`);
+    console.error(`OpenPreview error: ${parsed.error}`);
     process.exit(1);
   }
 
@@ -87,7 +87,7 @@ async function main() {
 
   if (parsed.explain) {
     if (!input) {
-      console.error("preview error: --explain requires a URL, file path, or stdin.");
+      console.error("OpenPreview error: --explain requires a URL, file path, or stdin.");
       process.exit(1);
     }
     const loaded = await loadPreview(input, parsed.mode);
@@ -99,6 +99,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("preview error:", err.message);
+  console.error("OpenPreview error:", err.message);
   process.exit(1);
 });

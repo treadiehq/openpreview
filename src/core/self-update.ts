@@ -80,7 +80,7 @@ export function parseUpdateArgs(args: string[]): ParsedUpdateArgs {
 
 export function getUpdateHelp(): string {
   return `
-Update preview from GitHub Releases.
+Update OpenPreview from GitHub Releases.
 
 Usage:
   preview update
@@ -121,7 +121,7 @@ export async function runSelfUpdate(args: string[]): Promise<void> {
 
   if (parsed.check) {
     if (targetVersion === VERSION) {
-      console.log(`preview ${VERSION} is up to date.`);
+      console.log(`OpenPreview ${VERSION} is up to date.`);
     } else {
       console.log(`Update available: ${VERSION} -> ${targetVersion}`);
     }
@@ -129,7 +129,7 @@ export async function runSelfUpdate(args: string[]): Promise<void> {
   }
 
   if (!parsed.toVersion && targetVersion === VERSION) {
-    console.log(`preview ${VERSION} is already up to date.`);
+    console.log(`OpenPreview ${VERSION} is already up to date.`);
     return;
   }
 
@@ -140,7 +140,7 @@ export async function runSelfUpdate(args: string[]): Promise<void> {
     const archivePath = join(tempDir, target.assetName);
     const binaryPath = join(tempDir, APP_NAME);
 
-    console.log(`Updating preview ${VERSION} -> ${targetVersion}`);
+    console.log(`Updating OpenPreview ${VERSION} -> ${targetVersion}`);
     console.log(`Downloading ${target.assetName}...`);
     await downloadAsset(release.asset, archivePath, token);
 
@@ -153,7 +153,7 @@ export async function runSelfUpdate(args: string[]): Promise<void> {
     await extractArchive(archivePath, tempDir);
     await installBinary(binaryPath, executablePath);
 
-    console.log(`Updated preview to ${targetVersion}`);
+    console.log(`Updated OpenPreview to ${targetVersion}`);
     console.log(`Installed at ${executablePath}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -353,7 +353,7 @@ async function installBinary(downloadedBinaryPath: string, targetPath: string): 
   } catch (error) {
     await rm(tempTargetPath, { force: true });
     if (isPermissionError(error)) {
-      throw new Error(`Cannot write to ${targetPath}. Re-run with elevated permissions or reinstall preview to a user-writable directory.`);
+      throw new Error(`Cannot write to ${targetPath}. Re-run with elevated permissions or reinstall OpenPreview to a user-writable directory.`);
     }
     throw error;
   }

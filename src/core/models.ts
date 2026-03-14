@@ -134,7 +134,7 @@ export interface ParsedMarkdown {
   raw: string;
 }
 
-// --- GitHub PR model (Phase 2) ---
+// --- GitHub PR model ---
 export interface GitHubPRComment {
   author?: string;
   body: string;
@@ -159,7 +159,7 @@ export interface ParsedGitHubPR {
   url?: string;
 }
 
-// --- Dashboard (Phase 2: summary mode for non-docs HTML) ---
+// --- Dashboard (summary mode for non-docs HTML) ---
 export interface DashboardPanel {
   title?: string;
   values: string[];

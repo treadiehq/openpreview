@@ -144,7 +144,7 @@ function detectHtmlContent(raw: string, source: InputSource, trimmed: string): D
   return withExplanation(raw, source, "html", {
     rule: "html-default",
     summary: analysis.jsHeavy
-      ? "Detected Docs mode from HTML, but the page looks JS-heavy, so preview may only see the server-rendered shell."
+      ? "Detected Docs mode from HTML, but the page looks JS-heavy, so OpenPreview may only see the server-rendered shell."
       : "Detected Docs mode from HTML content.",
     nextAction: analysis.jsHeavy
       ? "Try a docs/article URL, save the rendered HTML, or use `preview --mode text <url>` if you need the raw shell."

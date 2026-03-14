@@ -1,4 +1,4 @@
-# Preview
+# OpenPreview
 
 Preview URLs, files, and command output in your terminal.
 

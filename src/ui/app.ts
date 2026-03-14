@@ -105,7 +105,7 @@ function buildLayout(
         ? { variant: "welcome" as const, version: opts.version }
         : undefined;
   const headerNode =
-    opts?.noHeader === true ? null : header ?? Header({ title: "preview" });
+    opts?.noHeader === true ? null : header ?? Header({ title: "OpenPreview" });
   return Box(
     {
       flexDirection: "column",
@@ -151,7 +151,7 @@ export function getHeader(
       case "dashboard":
         return { title: doc.title, sourceLabel: label + truncSuffix };
       default:
-        return { title: "Preview", sourceLabel: label + truncSuffix };
+        return { title: "OpenPreview", sourceLabel: label + truncSuffix };
     }
   })();
   return Header({ ...base, search, status, modeLabel });

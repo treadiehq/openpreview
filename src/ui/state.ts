@@ -1,5 +1,5 @@
 /**
- * App-level UI state for Phase 3: search, palette, json view mode, focus.
+ * App-level UI state: search, palette, json view mode, focus.
  */
 
 export interface AppState {

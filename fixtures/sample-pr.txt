@@ -1,4 +1,4 @@
-# Add preview CLI for terminal-native docs and API viewer
+# Add OpenPreview CLI for terminal-native docs and API viewer
 
 ## Author
 @dantelex
@@ -23,4 +23,4 @@ fixtures/sample.md             A
 
 ## Comments
 @reviewer: LGTM, nice structure.
-@dev: Should we add search in Phase 2?
+@dev: Should we add search in a follow-up?

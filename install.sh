@@ -159,10 +159,10 @@ else
 fi
 
 say ""
-say "${BOLD}${BLUE}preview${RESET}"
+say "${BOLD}${BLUE}OpenPreview${RESET}"
 say "${DIM}Installed version:${RESET} ${INSTALLED_VERSION}"
 say ""
-say "${DIM}Installing preview version:${RESET} ${BOLD}${VERSION}${RESET}"
+say "${DIM}Installing OpenPreview version:${RESET} ${BOLD}${VERSION}${RESET}"
 say ""
 
 curl_download "${BASE_DOWNLOAD_URL}" -o "${ARCHIVE_PATH}" \
@@ -188,6 +188,7 @@ say ""
 say "${GREEN}Installed ${APP_NAME} to ${INSTALL_DIR}/${APP_NAME}${RESET}"
 say ""
 say "${DIM}To start:${RESET}"
+say "  ${BOLD}preview"
 say "  ${BOLD}preview https://docs.example.com${RESET}"
 say "  ${BOLD}preview --inspect https://docs.example.com${RESET}"
 say "  ${BOLD}preview update${RESET}"

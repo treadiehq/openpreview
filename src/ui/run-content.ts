@@ -121,7 +121,7 @@ export function runContentApp(
       ...(doc.kind === "json"
         ? [{ name: "Toggle raw JSON", description: "Switch view", value: "raw" }]
         : []),
-      { name: "Quit", description: "Exit preview", value: "quit" },
+      { name: "Quit", description: "Exit OpenPreview", value: "quit" },
     ];
 
     let paletteRow: ReturnType<typeof Box> | null = null;
@@ -542,7 +542,7 @@ function buildContentNotices(
     notices.push({
       level: "warning",
       message:
-        "Preview fetched the HTML but could not find readable content. This page may require client-side rendering. Try a docs/article URL, save the rendered HTML, or rerun with `preview --mode text <url>`.",
+        "OpenPreview fetched the HTML but could not find readable content. This page may require client-side rendering. Try a docs/article URL, save the rendered HTML, or rerun with `preview --mode text <url>`.",
     });
   }
 

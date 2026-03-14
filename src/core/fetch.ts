@@ -4,6 +4,7 @@
 
 import type { InputSource } from "./models.ts";
 import { readFile } from "./input.ts";
+import { VERSION } from "./version.ts";
 
 const FETCH_TIMEOUT_MS = 10_000;
 export const MAX_CONTENT_SIZE_BYTES = 10 * 1024 * 1024;
@@ -40,7 +41,7 @@ async function fetchUrl(url: string): Promise<FetchResult> {
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "preview-cli/1.0" },
+      headers: { "User-Agent": `OpenPreview/${VERSION}` },
       redirect: "follow",
       signal: controller.signal,
     });

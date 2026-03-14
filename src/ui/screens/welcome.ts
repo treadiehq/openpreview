@@ -34,7 +34,7 @@ export function WelcomeScreen() {
       paddingY: 2,
     },
     Logo(),
-    Text({ content: "Preview anything, right in your terminal.", fg: theme.textMuted }),
+    Text({ content: "OpenPreview: preview anything in your terminal.", fg: theme.textMuted }),
     Box(
       {
         flexDirection: "column",
