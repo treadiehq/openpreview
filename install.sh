@@ -6,6 +6,7 @@ APP_NAME="preview"
 REPO="${OPENPREVIEW_REPO:-treadiehq/openpreview}"
 REQUESTED_VERSION="${OPENPREVIEW_VERSION:-}"
 INSTALL_DIR_OVERRIDE="${OPENPREVIEW_INSTALL_DIR:-}"
+TOKEN="${OPENPREVIEW_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
 
 if [ -t 1 ]; then
   BOLD="$(printf '\033[1m')"
@@ -43,6 +44,29 @@ trap cleanup EXIT
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
+}
+
+curl_api() {
+  if [ -n "${TOKEN}" ]; then
+    curl -fsSL \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Accept: application/vnd.github+json" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      "$@"
+  else
+    curl -fsSL "$@"
+  fi
+}
+
+curl_download() {
+  if [ -n "${TOKEN}" ]; then
+    curl -fL --progress-bar \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Accept: application/octet-stream" \
+      "$@"
+  else
+    curl -fL --progress-bar "$@"
+  fi
 }
 
 detect_os() {
@@ -114,8 +138,8 @@ if [ -n "${REQUESTED_VERSION}" ]; then
   TAG="$(normalize_tag "${REQUESTED_VERSION}")"
   BASE_DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
 else
-  RELEASE_JSON="$(curl -fsSL "${LATEST_RELEASE_API}")" \
-    || fail "Could not determine the latest release version from GitHub Releases."
+  RELEASE_JSON="$(curl_api "${LATEST_RELEASE_API}")" \
+    || fail "Could not determine the latest release version from GitHub Releases. If the repo is private, set OPENPREVIEW_GITHUB_TOKEN or GITHUB_TOKEN."
   TAG="$(printf '%s' "${RELEASE_JSON}" | sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n 1)"
   [ -n "${TAG}" ] || fail "Could not determine the latest release version."
   BASE_DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
@@ -141,10 +165,10 @@ say ""
 say "${DIM}Installing preview version:${RESET} ${BOLD}${VERSION}${RESET}"
 say ""
 
-curl -fL --progress-bar "${BASE_DOWNLOAD_URL}" -o "${ARCHIVE_PATH}" \
-  || fail "Download failed. Release asset ${ASSET_NAME} was not found for ${TAG}."
+curl_download "${BASE_DOWNLOAD_URL}" -o "${ARCHIVE_PATH}" \
+  || fail "Download failed. Release asset ${ASSET_NAME} was not found for ${TAG}. If the repo is private, set OPENPREVIEW_GITHUB_TOKEN or GITHUB_TOKEN."
 
-if curl -fsSL "${CHECKSUM_URL}" -o "${CHECKSUM_PATH}"; then
+if curl_download "${CHECKSUM_URL}" -o "${CHECKSUM_PATH}"; then
   EXPECTED_SHA="$(awk 'NR==1 {print $1}' "${CHECKSUM_PATH}")"
   ACTUAL_SHA="$(sha256_file "${ARCHIVE_PATH}")"
   [ "${EXPECTED_SHA}" = "${ACTUAL_SHA}" ] || fail "Checksum verification failed for ${ASSET_NAME}."
@@ -166,6 +190,7 @@ say ""
 say "${DIM}To start:${RESET}"
 say "  ${BOLD}preview https://docs.example.com${RESET}"
 say "  ${BOLD}preview --inspect https://docs.example.com${RESET}"
+say "  ${BOLD}preview update${RESET}"
 say ""
 say "${DIM}When a page looks wrong:${RESET}"
 say "  ${BOLD}preview --mode docs <url>${RESET}"

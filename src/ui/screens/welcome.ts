@@ -7,6 +7,7 @@ export function WelcomeScreen() {
     ["preview <url>",              "Preview a web page"],
     ["preview <file>",             "Preview a local file (.md .json .html)"],
     ["preview --mode docs <url>",  "Force docs mode for a page"],
+    ["preview update",             "Update an installed release binary"],
     ["preview --explain <url>",    "Print detection and fetch details"],
     ["cat file | preview",         "Pipe any content"],
     ["curl <api-url> | preview",   "Preview an API response"],

@@ -8,10 +8,9 @@ import { parseCliArgs } from "./core/cli-options.ts";
 import { buildExplainReport } from "./core/explain.ts";
 import { resolveInput } from "./core/input.ts";
 import { loadPreview } from "./core/preview-session.ts";
+import { getUpdateHelp, runSelfUpdate } from "./core/self-update.ts";
+import { VERSION } from "./core/version.ts";
 import { runApp } from "./ui/app.ts";
-
-const pkg = await import("../package.json");
-const VERSION = pkg.version ?? "1.0.0";
 
 function showHelp() {
   console.log(`
@@ -21,12 +20,14 @@ Usage:
   preview <url>              Preview a web page (docs mode)
   preview <file-path>         Preview a local file (e.g. .md, .json)
   <command> | preview         Preview piped input (e.g. curl ... | preview, cat file | preview)
+  preview update             Download and install the latest release
 
 Examples:
   preview https://docs.example.com
   preview --mode docs https://planetscale.com
   preview --inspect https://docs.example.com
   preview --explain https://docs.example.com
+  preview update
   preview ./README.md
   cat data.json | preview
   gh pr view 123 | preview
@@ -37,6 +38,10 @@ Options:
   --mode, -m <mode>        Force a mode: auto, docs, dashboard, json, markdown, github-pr, text
   --inspect                Open the inspect overlay on launch
   --explain, --debug       Print detection, parser, and fetch details, then exit
+
+Update:
+  preview update --check   Show whether an update is available
+  preview update --to X    Install a specific release version
 
 In-app:
   i                        Toggle inspect overlay
@@ -51,7 +56,18 @@ function showVersion() {
 }
 
 async function main() {
-  const parsed = parseCliArgs(process.argv.slice(2));
+  const args = process.argv.slice(2);
+
+  if (args[0] === "update") {
+    await runSelfUpdate(args.slice(1));
+    return;
+  }
+  if (args[0] === "help" && args[1] === "update") {
+    console.log(getUpdateHelp());
+    process.exit(0);
+  }
+
+  const parsed = parseCliArgs(args);
 
   if (parsed.error) {
     console.error(`preview error: ${parsed.error}`);

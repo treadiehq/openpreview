@@ -1,6 +1,6 @@
 {
   "name": "preview",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Terminal-native preview for URLs, markdown, JSON, and command output",
   "type": "module",
   "main": "dist/cli.js",

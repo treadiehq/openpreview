@@ -4,6 +4,8 @@ Preview URLs, files, and command output in your terminal.
 
 It works well for docs pages, JSON, markdown, GitHub PR text, dashboards, and plain text.
 
+> Instead of switching between terminal and browser, you can inspect APIs, docs, and output right where you’re already working.
+
 ## Install
 
 ```bash
@@ -17,6 +19,15 @@ preview https://opencode.ai
 ```
 
 The installer downloads the latest GitHub Release and installs the `preview` binary.
+
+If you're installing from a private fork, set a GitHub token first:
+
+```bash
+export OPENPREVIEW_GITHUB_TOKEN=your_github_token
+bash ./install.sh
+```
+
+`OPENPREVIEW_GITHUB_TOKEN` or `GITHUB_TOKEN` is needed for private releases.
 
 Current release targets:
 
@@ -44,6 +55,7 @@ preview https://privateconnect.co
 preview <url>
 preview <file>
 <command> | preview
+preview update
 preview --mode docs <url>
 preview --inspect <url>
 preview --explain <url>
@@ -71,6 +83,16 @@ preview --mode dashboard ./fixtures/sample-dashboard.html
 - `y`: copy the selected value
 - `i`: inspect fetch and detection details
 - `?`: show help
+
+## Updating
+
+```bash
+preview update
+preview update --check
+```
+
+Use `preview update` to replace the current installed release binary with the latest version.
+If you're updating from a private fork, set `OPENPREVIEW_GITHUB_TOKEN` or `GITHUB_TOKEN` first.
 
 ## When a page looks wrong
 
