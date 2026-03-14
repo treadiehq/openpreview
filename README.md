@@ -1,14 +1,34 @@
-# preview
+# Preview
 
 Preview URLs, files, and command output in your terminal.
 
 It works well for docs pages, JSON, markdown, GitHub PR text, dashboards, and plain text.
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/treadiehq/openpreview/main/install.sh | bash
+```
+
+Then run:
+
+```bash
+preview https://opencode.ai
+```
+
+The installer downloads the latest GitHub Release and installs the `preview` binary.
+
+Current release targets:
+
+- macOS Apple Silicon
+- macOS Intel
+- Linux x64
+
 ## Quick start
 
 ```bash
 bun install
-bun run dev -- https://docs.example.com
+bun run dev -- https://planetscale.com
 ```
 
 If you want a built CLI:
@@ -16,7 +36,7 @@ If you want a built CLI:
 ```bash
 bun run build
 bun link
-preview https://docs.example.com
+preview https://privateconnect.co
 ```
 
 ## Common commands
@@ -39,7 +59,7 @@ preview --explain <url>
 Examples:
 
 ```bash
-preview --mode docs https://planetscale.com
+preview --mode docs https://resend.com
 preview --mode dashboard ./fixtures/sample-dashboard.html
 ```
 
@@ -76,11 +96,6 @@ bun run preview:privateconnect
 
 Manual test fixtures live in `fixtures/`.
 
-## Requirements
-
-- Bun
-- macOS, Linux, or Windows
-
 ## License
 
-MIT
+[FSL-1.1-MIT](LICENSE)

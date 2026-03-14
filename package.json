@@ -1,6 +1,6 @@
 {
   "name": "preview",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Terminal-native preview for URLs, markdown, JSON, and command output",
   "type": "module",
   "main": "dist/cli.js",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "bun build src/cli.ts --outdir=dist --target=bun --minify",
+    "build:release": "bash ./scripts/build-release.sh",
     "dev": "bun run src/cli.ts",
     "start": "bun run dist/cli.js",
     "test": "bun test",
