@@ -105,6 +105,7 @@ need_cmd tar
 OS="$(detect_os)"
 ARCH="$(detect_arch)"
 ASSET_NAME="${APP_NAME}-${OS}-${ARCH}.tar.gz"
+LATEST_RELEASE_API="https://api.github.com/repos/${REPO}/releases/latest"
 
 BASE_DOWNLOAD_URL=""
 TAG=""
@@ -113,12 +114,11 @@ if [ -n "${REQUESTED_VERSION}" ]; then
   TAG="$(normalize_tag "${REQUESTED_VERSION}")"
   BASE_DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
 else
-  BASE_DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${ASSET_NAME}"
-  EFFECTIVE_URL="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${BASE_DOWNLOAD_URL}")" \
-    || fail "Could not find a release asset for ${OS}-${ARCH}. Supported releases are published on GitHub Releases."
-  TAG="$(printf '%s' "${EFFECTIVE_URL}" | sed -E 's#.*releases/download/([^/]+)/.*#\1#')"
+  RELEASE_JSON="$(curl -fsSL "${LATEST_RELEASE_API}")" \
+    || fail "Could not determine the latest release version from GitHub Releases."
+  TAG="$(printf '%s' "${RELEASE_JSON}" | sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n 1)"
   [ -n "${TAG}" ] || fail "Could not determine the latest release version."
-  BASE_DOWNLOAD_URL="${EFFECTIVE_URL}"
+  BASE_DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
 fi
 
 VERSION="${TAG#v}"
