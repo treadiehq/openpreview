@@ -18,17 +18,6 @@ Then run:
 preview https://opencode.ai
 ```
 
-The installer downloads the latest GitHub Release and installs the `preview` binary.
-
-If you're installing from a private fork, set a GitHub token first:
-
-```bash
-export OPENPREVIEW_GITHUB_TOKEN=your_github_token
-bash ./install.sh
-```
-
-`OPENPREVIEW_GITHUB_TOKEN` or `GITHUB_TOKEN` is needed for private releases.
-
 Current release targets:
 
 - macOS Apple Silicon
@@ -55,7 +44,6 @@ preview https://privateconnect.co
 preview <url>
 preview <file>
 <command> | preview
-preview update
 preview --mode docs <url>
 preview --inspect <url>
 preview --explain <url>
@@ -90,9 +78,6 @@ preview --mode dashboard ./fixtures/sample-dashboard.html
 preview update
 preview update --check
 ```
-
-Use `preview update` to replace the current installed release binary with the latest version.
-If you're updating from a private fork, set `OPENPREVIEW_GITHUB_TOKEN` or `GITHUB_TOKEN` first.
 
 ## When a page looks wrong
 
