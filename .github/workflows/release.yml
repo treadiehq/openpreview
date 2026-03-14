@@ -18,8 +18,6 @@ jobs:
         include:
           - runner: ubuntu-latest
             label: linux-x64
-          - runner: macos-13
-            label: darwin-x64
           - runner: macos-14
             label: darwin-arm64
 

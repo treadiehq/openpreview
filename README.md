@@ -21,7 +21,6 @@ The installer downloads the latest GitHub Release and installs the `preview` bin
 Current release targets:
 
 - macOS Apple Silicon
-- macOS Intel
 - Linux x64
 
 ## Quick start
