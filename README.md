@@ -102,6 +102,10 @@ bun run preview:privateconnect
 
 Manual test fixtures live in `fixtures/`.
 
+## Releases
+
+Pushing a version tag (e.g. `v0.0.5`) triggers [GitHub Actions](.github/workflows/release.yml), which builds **darwin-arm64** and **linux-x64** on native runners and publishes the release with both binaries. Locally, `bun run build:release` builds for your current platform only.
+
 ## License
 
 [FSL-1.1-MIT](LICENSE)

@@ -7,6 +7,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${OPENPREVIEW_OUT_DIR:-${ROOT_DIR}/release}"
 TMP_DIR="$(mktemp -d)"
 
+# All release targets (OS-ARCH). Use OPENPREVIEW_BUILD_ALL=1 to build every target.
+# Note: OPENPREVIEW_BUILD_ALL requires native deps for each platform (@opentui/core-*).
+# Recommended: use CI (push a v* tag) to build both darwin-arm64 and linux-x64 on native runners.
+RELEASE_TARGETS="darwin-arm64 linux-x64"
+
 cleanup() {
   rm -rf "${TMP_DIR}"
 }
@@ -44,22 +49,37 @@ sha256_file() {
   fi
 }
 
-OS="${OPENPREVIEW_OS:-$(normalize_os "$(uname -s)")}"
-ARCH="${OPENPREVIEW_ARCH:-$(normalize_arch "$(uname -m)")}"
-ARCHIVE_BASENAME="${APP_NAME}-${OS}-${ARCH}"
-BIN_PATH="${TMP_DIR}/${APP_NAME}"
-ARCHIVE_PATH="${OUT_DIR}/${ARCHIVE_BASENAME}.tar.gz"
-CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
+# Build one target: OS and ARCH (e.g. darwin arm64, linux x64).
+# Uses Bun cross-compilation when target differs from host.
+build_one() {
+  local OS="$1"
+  local ARCH="$2"
+  local BUN_TARGET="bun-${OS}-${ARCH}"
+  local ARCHIVE_BASENAME="${APP_NAME}-${OS}-${ARCH}"
+  local BIN_PATH="${TMP_DIR}/${APP_NAME}"
+  local ARCHIVE_PATH="${OUT_DIR}/${ARCHIVE_BASENAME}.tar.gz"
+  local CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
+
+  echo "Building ${APP_NAME} for ${OS}-${ARCH} (${BUN_TARGET})..."
+  cd "${ROOT_DIR}"
+  bun build --compile --target="${BUN_TARGET}" src/cli.ts --outfile "${BIN_PATH}"
+
+  tar -C "${TMP_DIR}" -czf "${ARCHIVE_PATH}" "${APP_NAME}"
+  printf '%s  %s\n' "$(sha256_file "${ARCHIVE_PATH}")" "$(basename "${ARCHIVE_PATH}")" > "${CHECKSUM_PATH}"
+  echo "Created ${ARCHIVE_PATH}"
+  echo "Created ${CHECKSUM_PATH}"
+}
 
 mkdir -p "${OUT_DIR}"
 
-echo "Building ${APP_NAME} for ${OS}-${ARCH}..."
-
-cd "${ROOT_DIR}"
-bun build --compile src/cli.ts --outfile "${BIN_PATH}"
-
-tar -C "${TMP_DIR}" -czf "${ARCHIVE_PATH}" "${APP_NAME}"
-printf '%s  %s\n' "$(sha256_file "${ARCHIVE_PATH}")" "$(basename "${ARCHIVE_PATH}")" > "${CHECKSUM_PATH}"
-
-echo "Created ${ARCHIVE_PATH}"
-echo "Created ${CHECKSUM_PATH}"
+if [ "${OPENPREVIEW_BUILD_ALL:-0}" = "1" ]; then
+  for spec in ${RELEASE_TARGETS}; do
+    OS="${spec%-*}"
+    ARCH="${spec#*-}"
+    build_one "${OS}" "${ARCH}"
+  done
+else
+  OS="${OPENPREVIEW_OS:-$(normalize_os "$(uname -s)")}"
+  ARCH="${OPENPREVIEW_ARCH:-$(normalize_arch "$(uname -m)")}"
+  build_one "${OS}" "${ARCH}"
+fi
