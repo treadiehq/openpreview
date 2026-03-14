@@ -1,0 +1,38 @@
+{
+  "name": "preview",
+  "version": "1.0.0",
+  "description": "Terminal-native preview for URLs, markdown, JSON, and command output",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "preview": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build src/cli.ts --outdir=dist --target=bun --minify",
+    "dev": "bun run src/cli.ts",
+    "start": "bun run dist/cli.js",
+    "test": "bun test",
+    "preview:url": "bun run src/cli.ts https://example.com",
+    "preview:md": "bun run src/cli.ts fixtures/sample.md",
+    "preview:json": "bun run src/cli.ts fixtures/sample.json",
+    "preview:html": "bun run src/cli.ts fixtures/sample.html",
+    "preview:pr": "bun run src/cli.ts fixtures/sample-pr.txt",
+    "preview:dashboard": "bun run src/cli.ts fixtures/sample-dashboard.html",
+    "preview:planetscale": "bun run src/cli.ts fixtures/regression-planetscale.html",
+    "preview:privateconnect": "bun run src/cli.ts fixtures/regression-privateconnect.html",
+    "explain:planetscale": "bun run src/cli.ts --explain fixtures/regression-planetscale.html",
+    "explain:privateconnect": "bun run src/cli.ts --explain fixtures/regression-privateconnect.html"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.87",
+    "cheerio": "^1.0.0",
+    "marked": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,26 @@
+# Add preview CLI for terminal-native docs and API viewer
+
+## Author
+@dantelex
+
+## State
+Open
+
+## Body
+This PR adds a new CLI `preview` that turns URLs, markdown, JSON, and command output into interactive terminal UIs.
+
+### Features
+- Docs mode for HTML pages
+- API/JSON mode with table and detail view
+- Markdown mode with TOC
+- GitHub PR mode for `gh pr view` output
+
+## Files changed
+src/cli.ts                    A
+src/core/input.ts              A
+src/core/detect.ts             A
+fixtures/sample.md             A
+
+## Comments
+@reviewer: LGTM, nice structure.
+@dev: Should we add search in Phase 2?

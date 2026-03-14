@@ -1,0 +1,20 @@
+{
+  "title": "Private Connect",
+  "description": "Private Connect lets you reach your database from anywhere without exposing it to the public internet.",
+  "sectionCount": 6,
+  "sectionTitles": [
+    "Reach your database from anywhere",
+    "How it works",
+    "Access by name",
+    "Stable ports",
+    "Encrypted",
+    "Works everywhere"
+  ],
+  "howItWorksExcerpt": "The client creates a secure path between your server and the hub, then keeps the route alive so database traffic can move through a stable private endpoint.\n\n[[CODEBLOCK_0]]",
+  "howItWorksCode": "Your Server ------> Hub\n       |               |\n       +--- secure ----+",
+  "accessByNameExcerpt": "Every shared database gets a stable hostname so apps and teammates can connect by name instead of copying changing IPs into local config files.",
+  "firstLinkHrefs": [
+    "https://privateconnect.co/docs/sharing"
+  ],
+  "codeBlockCount": 1
+}

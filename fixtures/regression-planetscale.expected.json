@@ -1,0 +1,18 @@
+{
+  "title": "PlanetScale - the world's fastest and most scalable cloud hosting for Vitess and Postgres",
+  "description": "PlanetScale offers the world's fastest and most scalable cloud hosting for Vitess and Postgres.",
+  "sectionCount": 6,
+  "sectionTitles": [
+    "The world's fastest and most scalable cloud databases",
+    "Performance",
+    "Uptime",
+    "Cost",
+    "Security",
+    "Features"
+  ],
+  "firstSectionExcerpt": "PlanetScale brings you the fastest databases available in the cloud. Both our Postgres and Vitess databases deliver exceptional speed and reliability, with Vitess adding ultra scalability through horizontal sharding.\nOur blazing fast NVMe drives unlock unlimited IOPS, bringing data center performance to the cloud. We o",
+  "firstLinkHrefs": [
+    "https://planetscale.com/docs"
+  ],
+  "codeBlockCount": 0
+}
