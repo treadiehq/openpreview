@@ -9,6 +9,8 @@ import { parseJson } from "./json.ts";
 import { parseMarkdown } from "./markdown.ts";
 import { parseGitHubPR } from "./github-pr.ts";
 import { parseDashboard } from "./dashboard.ts";
+import { parseTable } from "./table.ts";
+import { parseLog } from "./log.ts";
 
 export async function parse(detected: DetectedContent): Promise<AnyParsed> {
   switch (detected.type) {
@@ -22,6 +24,10 @@ export async function parse(detected: DetectedContent): Promise<AnyParsed> {
       return parseMarkdown(detected.raw, detected.source);
     case "github-pr":
       return parseGitHubPR(detected.raw, detected.source);
+    case "table":
+      return parseTable(detected.raw, detected.source);
+    case "log":
+      return parseLog(detected.raw, detected.source);
     case "text":
       return {
         kind: "text",

@@ -10,6 +10,8 @@ import type {
   InputSource,
   PreviewMode,
 } from "./models.ts";
+import { looksLikeLog } from "./parse/log.ts";
+import { inferTableStructure } from "./parse/table.ts";
 
 export function detectContentType(
   raw: string,
@@ -35,6 +37,9 @@ export function detectContentType(
     if (ct.includes("application/json")) {
       return withExplanation(raw, source, "json", basicExplanation("content-type", "Detected JSON from the Content-Type header."));
     }
+    if (ct.includes("text/csv") || ct.includes("application/csv") || ct.includes("tab-separated-values")) {
+      return withExplanation(raw, source, "table", basicExplanation("content-type", "Detected tabular data from the Content-Type header."));
+    }
     if (ct.includes("text/markdown")) {
       return withExplanation(raw, source, "markdown", basicExplanation("content-type", "Detected Markdown from the Content-Type header."));
     }
@@ -47,16 +52,30 @@ export function detectContentType(
     if (pathname.endsWith(".json")) {
       return withExplanation(raw, source, "json", basicExplanation("url-path", "Detected JSON from the URL path."));
     }
+    if (pathname.endsWith(".csv") || pathname.endsWith(".tsv")) {
+      return withExplanation(raw, source, "table", basicExplanation("url-path", "Detected tabular data from the URL path."));
+    }
+    if (pathname.endsWith(".log")) {
+      return withExplanation(raw, source, "log", basicExplanation("url-path", "Detected logs from the URL path."));
+    }
     if (pathname.endsWith(".md") || pathname.endsWith(".markdown")) {
       return withExplanation(raw, source, "markdown", basicExplanation("url-path", "Detected Markdown from the URL path."));
     }
-    return detectHtmlContent(raw, source, trimmed);
+    if (isLikelyHtml(trimmed)) {
+      return detectHtmlContent(raw, source, trimmed);
+    }
   }
 
   if (source.type === "file") {
     const lower = source.value.toLowerCase();
     if (lower.endsWith(".json")) {
       return withExplanation(raw, source, "json", basicExplanation("file-extension", "Detected JSON from the file extension."));
+    }
+    if (lower.endsWith(".csv") || lower.endsWith(".tsv")) {
+      return withExplanation(raw, source, "table", basicExplanation("file-extension", "Detected tabular data from the file extension."));
+    }
+    if (lower.endsWith(".log")) {
+      return withExplanation(raw, source, "log", basicExplanation("file-extension", "Detected logs from the file extension."));
     }
     if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
       return withExplanation(raw, source, "markdown", basicExplanation("file-extension", "Detected Markdown from the file extension."));
@@ -74,6 +93,15 @@ export function detectContentType(
   }
   if (isLikelyMarkdown(trimmed)) {
     return withExplanation(raw, source, "markdown", basicExplanation("content-heuristic", "Detected Markdown from headings, lists, links, or fences."));
+  }
+  if (looksLikeLog(trimmed)) {
+    return withExplanation(raw, source, "log", basicExplanation("content-heuristic", "Detected log output from timestamp, level, or stack trace patterns."));
+  }
+  if (inferTableStructure(trimmed)) {
+    return withExplanation(raw, source, "table", basicExplanation("content-heuristic", "Detected tabular output from aligned columns or delimited rows."));
+  }
+  if (isLikelyHtml(trimmed)) {
+    return detectHtmlContent(raw, source, trimmed);
   }
 
   return withExplanation(raw, source, "text", basicExplanation("fallback", "Fell back to plain text because no richer content type matched."));
@@ -100,8 +128,17 @@ function extractPathname(url: string): string {
 
 function isLikelyJson(s: string): boolean {
   if (!s) return false;
-  const t = s.slice(0, 200).trim();
-  return (t.startsWith("{") && t.includes("}")) || (t.startsWith("[") && t.includes("]"));
+  const t = s.trim();
+  if (!((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]")))) {
+    return false;
+  }
+
+  try {
+    JSON.parse(t);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isLikelyMarkdown(s: string): boolean {
@@ -121,6 +158,19 @@ function isLikelyGitHubPR(s: string): boolean {
   return (
     /(pull request|PR #|Merge pull request)/i.test(s) &&
     (/^#\s/.test(s) || /Author:|author:/i.test(s) || /Files? changed/i.test(s))
+  );
+}
+
+function isLikelyHtml(s: string): boolean {
+  if (!s) return false;
+  const sample = s.slice(0, 4000).trim().toLowerCase();
+  return (
+    sample.startsWith("<!doctype html") ||
+    sample.startsWith("<html") ||
+    sample.startsWith("<body") ||
+    sample.startsWith("<main") ||
+    /<(html|head|body|main|article|section|div|nav|script|style|table|tr|td|th|meter|progress|span|a)\b/.test(sample) ||
+    /<[a-z][^>]*>/.test(sample)
   );
 }
 
@@ -179,6 +229,10 @@ function formatContentTypeLabel(type: ContentType): string {
       return "Docs";
     case "json":
       return "JSON";
+    case "log":
+      return "Log";
+    case "table":
+      return "Table";
     case "github-pr":
       return "GitHub PR";
     default:

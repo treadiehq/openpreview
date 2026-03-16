@@ -17,6 +17,8 @@ export function supportsSkillExport(doc: AnyParsed): boolean {
     doc.kind === "docs" ||
     doc.kind === "markdown" ||
     doc.kind === "github-pr" ||
+    doc.kind === "table" ||
+    doc.kind === "log" ||
     doc.kind === "text"
   );
 }
@@ -127,6 +129,28 @@ export function renderDocumentForAgent(
           parts.push(comment.body.trim() || "(empty)");
         }
       }
+      break;
+    }
+    case "table": {
+      parts.push("");
+      parts.push("## Table");
+      parts.push(`Columns: ${doc.columns.join(" | ")}`);
+      parts.push("");
+      parts.push("```text");
+      parts.push(doc.raw.trim() || "(empty)");
+      parts.push("```");
+      break;
+    }
+    case "log": {
+      parts.push("");
+      parts.push("## Log Summary");
+      parts.push(`Entries: ${doc.entries.length}`);
+      parts.push(`Error: ${doc.counts.error} · Warn: ${doc.counts.warn} · Info: ${doc.counts.info}`);
+      parts.push("");
+      parts.push("## Log");
+      parts.push("```text");
+      parts.push(doc.raw.trim() || "(empty)");
+      parts.push("```");
       break;
     }
     case "dashboard": {
@@ -252,6 +276,10 @@ function getExportTitle(doc: AnyParsed): string {
       return doc.title || "Markdown";
     case "json":
       return "JSON export";
+    case "table":
+      return "Table export";
+    case "log":
+      return "Log export";
     case "github-pr":
       return doc.title || "GitHub PR";
     case "dashboard":
@@ -299,7 +327,16 @@ function formatLink(text: string, href: string): string {
 
 function getSkillName(doc: AnyParsed, source: InputSource): string {
   const explicit = getBaseName(doc, source);
-  const suffix = doc.kind === "docs" ? "docs" : doc.kind === "markdown" ? "notes" : "reference";
+  const suffix =
+    doc.kind === "docs"
+      ? "docs"
+      : doc.kind === "markdown"
+        ? "notes"
+        : doc.kind === "table"
+          ? "table"
+          : doc.kind === "log"
+            ? "logs"
+            : "reference";
   return slugify(`${explicit}-${suffix}`);
 }
 
@@ -316,6 +353,8 @@ function getBaseName(doc: AnyParsed, source: InputSource): string {
   if (doc.kind === "docs" && doc.title) return doc.title;
   if (doc.kind === "markdown" && doc.title) return doc.title;
   if (doc.kind === "github-pr" && doc.title) return doc.title;
+  if (doc.kind === "table") return source.label ?? "table";
+  if (doc.kind === "log") return source.label ?? "log";
   if (source.label) return source.label;
   return source.value;
 }

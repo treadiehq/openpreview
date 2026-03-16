@@ -1,0 +1,4 @@
+USER            PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root              1  0.0  0.1 4096384 12920 ?       Ss   09:00   0:01 /sbin/init
+dante          4201  0.2  1.8  512344 150432 pts/0   Sl+  09:05   0:12 bun run src/cli.ts
+postgres       8120  0.1  0.9  286732  81200 ?       Ssl  09:10   0:04 postgres: writer process

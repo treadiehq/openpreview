@@ -2,7 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { InputSource, ParsedDocs, ParsedJson, ParsedText, PreviewInspectInfo } from "./models.ts";
+import type {
+  InputSource,
+  ParsedDocs,
+  ParsedJson,
+  ParsedLog,
+  ParsedTable,
+  ParsedText,
+  PreviewInspectInfo,
+} from "./models.ts";
 import { exportSkillBundle, renderDocumentForAgent, supportsSkillExport } from "./export.ts";
 
 const urlSource: InputSource = {
@@ -74,6 +82,27 @@ describe("renderDocumentForAgent", () => {
     expect(result).toContain('"ok": true');
     expect(result).toContain('"items": [');
   });
+
+  test("renders table and log content for agents", () => {
+    const table: ParsedTable = {
+      kind: "table",
+      raw: "USER PID\nroot 1",
+      source: urlSource,
+      format: "aligned",
+      columns: ["USER", "PID"],
+      rows: [["root", "1"]],
+    };
+    const log: ParsedLog = {
+      kind: "log",
+      raw: "2026-03-16T09:00:00Z INFO Started",
+      source: urlSource,
+      entries: [{ timestamp: "2026-03-16T09:00:00Z", level: "info", message: "Started", details: [], raw: "2026-03-16T09:00:00Z INFO Started" }],
+      counts: { trace: 0, debug: 0, info: 1, warn: 0, error: 0, fatal: 0, unknown: 0 },
+    };
+
+    expect(renderDocumentForAgent(table, urlSource)).toContain("## Table");
+    expect(renderDocumentForAgent(log, urlSource)).toContain("## Log Summary");
+  });
 });
 
 describe("supportsSkillExport", () => {
@@ -103,6 +132,21 @@ describe("supportsSkillExport", () => {
 
     expect(supportsSkillExport(docs)).toBe(true);
     expect(supportsSkillExport(text)).toBe(true);
+    expect(supportsSkillExport({
+      kind: "table",
+      raw: "USER PID",
+      source: urlSource,
+      format: "aligned",
+      columns: ["USER", "PID"],
+      rows: [],
+    })).toBe(true);
+    expect(supportsSkillExport({
+      kind: "log",
+      raw: "INFO Started",
+      source: urlSource,
+      entries: [],
+      counts: { trace: 0, debug: 0, info: 0, warn: 0, error: 0, fatal: 0, unknown: 0 },
+    })).toBe(true);
     expect(supportsSkillExport(json)).toBe(false);
   });
 });

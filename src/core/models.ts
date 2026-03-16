@@ -4,7 +4,16 @@
  */
 
 export type InputSourceType = "url" | "file" | "stdin";
-export type PreviewMode = "auto" | "docs" | "dashboard" | "json" | "markdown" | "github-pr" | "text";
+export type PreviewMode =
+  | "auto"
+  | "docs"
+  | "dashboard"
+  | "json"
+  | "markdown"
+  | "github-pr"
+  | "table"
+  | "log"
+  | "text";
 
 export interface InputSource {
   type: InputSourceType;
@@ -14,7 +23,15 @@ export interface InputSource {
   label?: string;
 }
 
-export type ContentType = "html" | "json" | "markdown" | "text" | "github-pr" | "dashboard";
+export type ContentType =
+  | "html"
+  | "json"
+  | "markdown"
+  | "text"
+  | "github-pr"
+  | "dashboard"
+  | "table"
+  | "log";
 
 export interface DetectedContent {
   type: ContentType;
@@ -174,13 +191,44 @@ export interface ParsedDashboard {
   links: DocsLink[];
 }
 
+// --- Table (CLI or delimited text) ---
+export interface ParsedTable {
+  kind: "table";
+  raw: string;
+  source: InputSource;
+  format: "aligned" | "tab" | "csv" | "fallback";
+  columns: string[];
+  rows: string[][];
+}
+
+// --- Logs ---
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal" | "unknown";
+
+export interface ParsedLogEntry {
+  timestamp?: string;
+  level: LogLevel;
+  message: string;
+  details: string[];
+  raw: string;
+}
+
+export interface ParsedLog {
+  kind: "log";
+  raw: string;
+  source: InputSource;
+  entries: ParsedLogEntry[];
+  counts: Record<LogLevel, number>;
+}
+
 // --- Union and fallback ---
 export type ParsedDocument =
   | ParsedDocs
   | ParsedJson
   | ParsedMarkdown
   | ParsedGitHubPR
-  | ParsedDashboard;
+  | ParsedDashboard
+  | ParsedTable
+  | ParsedLog;
 
 export interface ParsedText {
   kind: "text";

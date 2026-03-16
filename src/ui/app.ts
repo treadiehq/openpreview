@@ -13,15 +13,19 @@ import { WelcomeScreen } from "./screens/welcome.ts";
 import { LoadingScreen, SPINNER_FRAME_COUNT } from "./screens/loading.ts";
 import { ErrorScreen } from "./screens/error.ts";
 import { loadPreview, type LoadedPreview } from "../core/preview-session.ts";
+import { isEscapeKey, isPlainKey, type KeyPressLike } from "./key-events.ts";
+import { getRendererInputConfig } from "./terminal-input.ts";
 
 export interface RunAppOptions {
   mode?: PreviewMode;
   inspect?: boolean;
+  follow?: boolean;
 }
 
 export async function runApp(input: InputSource | null, options?: RunAppOptions): Promise<void> {
   const forcedMode = options?.mode ?? "auto";
   const showInspectOnStart = options?.inspect ?? false;
+  const follow = options?.follow ?? false;
 
   if (!input) {
     const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
@@ -36,17 +40,34 @@ export async function runApp(input: InputSource | null, options?: RunAppOptions)
   }
 
   if (input.type === "stdin") {
+    if (follow) {
+      const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
+      const { runStreamApp } = await import("./run-stream.ts");
+      runStreamApp(renderer, input, { mode: forcedMode });
+      return;
+    }
+
+    const rendererInputConfig = getRendererInputConfig(input);
+
     let loaded: LoadedPreview;
     try {
       loaded = await loadPreview(input, forcedMode);
     } catch (e) {
-      const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
+      const renderer = await createCliRenderer({
+        exitOnCtrlC: true,
+        useAlternateScreen: true,
+        ...rendererInputConfig,
+      });
       setupQuitKeys(renderer);
       renderer.root.add(buildLayout(renderer, ErrorScreen((e as Error).message)));
       return;
     }
 
-    const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
+    const renderer = await createCliRenderer({
+      exitOnCtrlC: true,
+      useAlternateScreen: true,
+      ...rendererInputConfig,
+    });
     setupQuitKeys(renderer);
     const { runContentApp } = await import("./run-content.ts");
     runContentApp(renderer, loaded.doc, loaded.source, {
@@ -59,8 +80,8 @@ export async function runApp(input: InputSource | null, options?: RunAppOptions)
 
   {
     const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
-    const quitHandler = (key: { name?: string; sequence?: string }) => {
-      if (key.name === "q" || key.sequence === "q" || key.name === "escape" || key.sequence === "\x1b") {
+    const quitHandler = (key: KeyPressLike) => {
+      if (isPlainKey(key, "q") || isEscapeKey(key)) {
         renderer.destroy();
         process.exit(0);
       }
@@ -155,16 +176,28 @@ export function getHeader(
         return { title: doc.title, subtitle: doc.author ? `by ${doc.author}` : undefined, sourceLabel: label + truncSuffix };
       case "dashboard":
         return { title: doc.title, sourceLabel: label + truncSuffix };
+      case "table":
+        return {
+          title: "Table",
+          subtitle: `${doc.rows.length} rows · ${doc.columns.length} columns`,
+          sourceLabel: label + truncSuffix,
+        };
+      case "log":
+        return {
+          title: "Log output",
+          subtitle: `${doc.entries.length} entries · ${formatLogCounts(doc.counts)}`,
+          sourceLabel: label + truncSuffix,
+        };
       default:
-        return { title: "OpenPreview", sourceLabel: label + truncSuffix };
+        return { title: "Text", sourceLabel: label + truncSuffix };
     }
   })();
   return Header({ ...base, search, status, modeLabel });
 }
 
 function setupQuitKeys(renderer: Awaited<ReturnType<typeof createCliRenderer>>) {
-  renderer.keyInput.on("keypress", (key: { name?: string; sequence?: string }) => {
-    if (key.name === "q" || key.name === "escape" || key.sequence === "\x1b") {
+  renderer.keyInput.on("keypress", (key: KeyPressLike) => {
+    if (isPlainKey(key, "q") || isEscapeKey(key)) {
       renderer.destroy();
       process.exit(0);
     }
@@ -183,4 +216,14 @@ function formatModeLabel(mode: string): string {
     default:
       return mode.charAt(0).toUpperCase() + mode.slice(1);
   }
+}
+
+function formatLogCounts(counts: { error: number; warn: number; info: number; debug: number }): string {
+  const parts = [
+    counts.error > 0 ? `ERROR ${counts.error}` : "",
+    counts.warn > 0 ? `WARN ${counts.warn}` : "",
+    counts.info > 0 ? `INFO ${counts.info}` : "",
+    counts.debug > 0 ? `DEBUG ${counts.debug}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ") || "mixed levels";
 }

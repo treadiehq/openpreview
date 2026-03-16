@@ -21,12 +21,18 @@ Usage:
   preview <url>              Preview a web page (docs mode)
   preview <file-path>         Preview a local file (e.g. .md, .json)
   <command> | preview         Preview piped input (e.g. curl ... | preview, cat file | preview)
+  <command> | preview --follow
   preview skill <url|file>   Export supported content as a reusable skill bundle
   preview update             Download and install the latest release
 
 Examples:
   preview https://docs.example.com
+  ps aux | preview
+  docker logs app | preview
+  docker logs -f app | preview --follow
   preview --mode docs https://planetscale.com
+  preview --mode table fixtures/sample-table.txt
+  preview --mode log fixtures/sample-log.txt
   preview --inspect https://docs.example.com
   preview --explain https://docs.example.com
   preview skill https://texturehq.com
@@ -38,7 +44,8 @@ Examples:
 Options:
   --help, -h               Show this help
   --version, -v            Show version
-  --mode, -m <mode>        Force a mode: auto, docs, dashboard, json, markdown, github-pr, text
+  --mode, -m <mode>        Force a mode: auto, docs, dashboard, json, markdown, github-pr, table, log, text
+  --follow, -f             Follow live stdin and keep rendering appended output
   --inspect                Open the inspect overlay on launch
   --explain, --debug       Print detection, parser, and fetch details, then exit
 
@@ -51,7 +58,7 @@ In-app:
   s then k                 Export a skill bundle
   ?                        Toggle keybinding help
 
-Modes: Docs (HTML), Dashboard, API (JSON), Markdown, GitHub PR, plain text.
+Modes: Docs (HTML), Dashboard, API (JSON), Markdown, GitHub PR, Table, Log, plain text.
 `);
 }
 
@@ -70,7 +77,7 @@ Examples:
   cat notes.md | preview skill
 
 Notes:
-  - Skill export is available for docs, markdown, GitHub PR, and plain text content.
+  - Skill export is available for docs, markdown, GitHub PR, table, log, and plain text content.
   - Output is saved under ./openpreview-exports by default.
   - The bundle includes SKILL.md and references/source.md.
 `);
@@ -118,6 +125,11 @@ async function main() {
 
   const input = resolveInput(parsed.positional);
 
+  if (parsed.follow && input?.type !== "stdin") {
+    console.error("OpenPreview error: --follow currently requires piped stdin, for example `docker logs -f app | preview --follow`.");
+    process.exit(1);
+  }
+
   if (parsed.explain) {
     if (!input) {
       console.error("OpenPreview error: --explain requires a URL, file path, or stdin.");
@@ -128,7 +140,7 @@ async function main() {
     process.exit(0);
   }
 
-  await runApp(input, { mode: parsed.mode, inspect: parsed.inspect });
+  await runApp(input, { mode: parsed.mode, inspect: parsed.inspect, follow: parsed.follow });
 }
 
 async function runSkillExport(args: string[]) {
@@ -149,8 +161,8 @@ async function runSkillExport(args: string[]) {
     process.exit(0);
   }
 
-  if (parsed.inspect || parsed.explain) {
-    console.error("OpenPreview error: --inspect and --explain are not supported with `preview skill`.");
+  if (parsed.inspect || parsed.explain || parsed.follow) {
+    console.error("OpenPreview error: --inspect, --explain, and --follow are not supported with `preview skill`.");
     process.exit(1);
   }
 

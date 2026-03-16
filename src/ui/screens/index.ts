@@ -11,6 +11,8 @@ import { MarkdownScreen } from "./markdown.ts";
 import { TextScreen } from "./text.ts";
 import { GitHubPRScreen } from "./github-pr.ts";
 import { DashboardScreen } from "./dashboard.ts";
+import { TableScreen } from "./table.ts";
+import { LogScreen } from "./log.ts";
 
 export interface ScreenOptions {
   jsonViewMode?: "structured" | "raw";
@@ -61,8 +63,16 @@ export function getScreen(
       const s = DashboardScreen(renderer, doc);
       return { ...s, footerKeys: [...BASE_KEYS, "Tab"] };
     }
+    case "table": {
+      const s = TableScreen(renderer, doc);
+      return { ...s, footerKeys: [...BASE_KEYS] };
+    }
+    case "log": {
+      const s = LogScreen(renderer, doc);
+      return { ...s, footerKeys: [...BASE_KEYS] };
+    }
     default: {
-      const s = TextScreen(doc.content, doc.source);
+      const s = TextScreen(renderer, doc.content, doc.source);
       return { ...s, footerKeys: [...BASE_KEYS] };
     }
   }

@@ -1,0 +1,6 @@
+2026-03-16T09:00:00Z INFO Starting preview service
+2026-03-16T09:00:01Z WARN Cache miss for docs page
+2026-03-16T09:00:02Z ERROR Failed to parse page
+    at parseDocs (src/core/parse/docs.ts:42:3)
+    at loadPreview (src/core/preview-session.ts:20:5)
+{"timestamp":"2026-03-16T09:00:03Z","level":"info","message":"Recovered after retry"}

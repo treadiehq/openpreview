@@ -4,6 +4,8 @@ import { parseMarkdown } from "./markdown.ts";
 import { parseDocs } from "./docs.ts";
 import { parseGitHubPR } from "./github-pr.ts";
 import { parseDashboard } from "./dashboard.ts";
+import { parseTable } from "./table.ts";
+import { parseLog } from "./log.ts";
 import type { InputSource, ParsedDocs } from "../models.ts";
 
 const stdin: InputSource = { type: "stdin", value: "stdin" };
@@ -393,6 +395,50 @@ describe("parseDashboard", () => {
     const doc = parseDashboard(raw, urlSource);
     expect(doc.title).toBe("Sales Dashboard");
     expect(doc.panels.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("parseTable", () => {
+  test("parses aligned cli output into columns and rows", async () => {
+    const raw = await Bun.file("fixtures/sample-table.txt").text();
+    const doc = parseTable(raw, stdin);
+
+    expect(doc.kind).toBe("table");
+    expect(doc.columns[0]).toBe("USER");
+    expect(doc.columns).toContain("COMMAND");
+    expect(doc.rows.length).toBe(3);
+    expect(doc.rows[1]?.[0]).toBe("dante");
+    expect(doc.rows[1]?.[doc.columns.length - 1]).toContain("bun run src/cli.ts");
+  });
+
+  test("falls back to a single-column table when forced on arbitrary text", () => {
+    const doc = parseTable("hello\nworld", stdin);
+    expect(doc.columns).toEqual(["Value"]);
+    expect(doc.rows).toEqual([["hello"], ["world"]]);
+  });
+});
+
+describe("parseLog", () => {
+  test("parses structured log lines and stack traces", async () => {
+    const raw = await Bun.file("fixtures/sample-log.txt").text();
+    const doc = parseLog(raw, stdin);
+
+    expect(doc.kind).toBe("log");
+    expect(doc.entries.length).toBe(4);
+    expect(doc.entries[0]?.level).toBe("info");
+    expect(doc.entries[2]?.level).toBe("error");
+    expect(doc.entries[2]?.details[0]).toContain("parseDocs");
+    expect(doc.counts.error).toBe(1);
+    expect(doc.counts.info).toBe(2);
+  });
+
+  test("parses ndjson logs", () => {
+    const raw = `{"timestamp":"2026-03-16T09:00:00Z","level":"info","message":"Started"}\n{"timestamp":"2026-03-16T09:00:01Z","level":"error","message":"Failed"}`;
+    const doc = parseLog(raw, stdin);
+
+    expect(doc.entries.length).toBe(2);
+    expect(doc.entries[0]?.timestamp).toBe("2026-03-16T09:00:00Z");
+    expect(doc.entries[1]?.level).toBe("error");
   });
 });
 

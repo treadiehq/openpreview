@@ -189,6 +189,16 @@ describe("detectContentType", () => {
       const r = detectContentType("just text", file("notes.txt"));
       expect(r.type).toBe("text");
     });
+
+    test(".log file", () => {
+      const r = detectContentType("INFO booted", file("app.log"));
+      expect(r.type).toBe("log");
+    });
+
+    test(".csv file", () => {
+      const r = detectContentType("name,role\nalice,admin", file("users.csv"));
+      expect(r.type).toBe("table");
+    });
   });
 
   describe("heuristic detection (stdin)", () => {
@@ -219,6 +229,26 @@ describe("detectContentType", () => {
     test("GitHub PR detection", () => {
       const pr = "# Merge pull request\n\nAuthor: alice\nFiles changed\nsrc/cli.ts A";
       expect(detectContentType(pr, stdin).type).toBe("github-pr");
+    });
+
+    test("aligned table detection", () => {
+      const table = `USER       PID  %CPU COMMAND\nroot         1   0.0 init\nalice      420   1.2 bun run dev`;
+      const detected = detectContentType(table, stdin);
+      expect(detected.type).toBe("table");
+      expect(detected.explanation?.summary).toContain("tabular output");
+    });
+
+    test("log detection with timestamps and levels", () => {
+      const log = `2026-03-16T09:00:00Z INFO Started\n2026-03-16T09:00:01Z ERROR Failed\n    at run (src/app.ts:10:1)`;
+      const detected = detectContentType(log, stdin);
+      expect(detected.type).toBe("log");
+      expect(detected.explanation?.summary).toContain("log output");
+    });
+
+    test("ndjson log detection does not collapse into json mode", () => {
+      const log = `{"timestamp":"2026-03-16T09:00:00Z","level":"info","message":"Started"}\n{"timestamp":"2026-03-16T09:00:01Z","level":"error","message":"Failed"}`;
+      const detected = detectContentType(log, stdin);
+      expect(detected.type).toBe("log");
     });
 
     test("plain text fallback", () => {

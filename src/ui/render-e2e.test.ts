@@ -162,4 +162,66 @@ describe("content rendering", () => {
       renderer.destroy();
     }
   });
+
+  test("renders detected table output from cli text", async () => {
+    const loaded = await loadPreview({
+      type: "file",
+      value: "fixtures/sample-table.txt",
+      label: "sample-table.txt",
+    });
+
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 108,
+      height: 28,
+    });
+
+    try {
+      runContentApp(renderer, loaded.doc, loaded.source, {
+        truncated: loaded.inspectInfo.truncated,
+        inspectInfo: loaded.inspectInfo,
+      });
+
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("Detected:");
+      expect(frame).toContain("Table");
+      expect(frame).toContain("Row 1 of 3");
+      expect(frame).toContain("COMMAND");
+      expect(frame).toContain("/sbin/init");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("renders detected logs with filter sidebar", async () => {
+    const loaded = await loadPreview({
+      type: "file",
+      value: "fixtures/sample-log.txt",
+      label: "sample-log.txt",
+    });
+
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 110,
+      height: 28,
+    });
+
+    try {
+      runContentApp(renderer, loaded.doc, loaded.source, {
+        truncated: loaded.inspectInfo.truncated,
+        inspectInfo: loaded.inspectInfo,
+      });
+
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("Detected:");
+      expect(frame).toContain("Log");
+      expect(frame).toContain("All (4)");
+      expect(frame).toContain("ERROR");
+      expect(frame).toContain("Failed to parse page");
+    } finally {
+      renderer.destroy();
+    }
+  });
 });

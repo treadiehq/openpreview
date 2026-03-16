@@ -1,6 +1,6 @@
 {
   "name": "openpreview",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "OpenPreview — terminal-native preview for URLs, markdown, JSON, and command output",
   "type": "module",
   "main": "dist/cli.js",
@@ -19,6 +19,8 @@
     "preview:json": "bun run src/cli.ts fixtures/sample.json",
     "preview:html": "bun run src/cli.ts fixtures/sample.html",
     "preview:pr": "bun run src/cli.ts fixtures/sample-pr.txt",
+    "preview:table": "bun run src/cli.ts fixtures/sample-table.txt",
+    "preview:log": "bun run src/cli.ts fixtures/sample-log.txt",
     "preview:dashboard": "bun run src/cli.ts fixtures/sample-dashboard.html",
     "preview:planetscale": "bun run src/cli.ts fixtures/regression-planetscale.html",
     "preview:privateconnect": "bun run src/cli.ts fixtures/regression-privateconnect.html",

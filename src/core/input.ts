@@ -41,21 +41,47 @@ export function resolveInput(args: string[], options?: ResolveInputOptions): Inp
 }
 
 export function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-  const stdinPromise = new Promise<string>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let timer: ReturnType<typeof setTimeout>;
+
+    const clearListeners = () => {
+      process.stdin.off("data", onData);
+      process.stdin.off("end", onEnd);
+      process.stdin.off("error", onError);
+    };
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        clearListeners();
+        reject(new Error(`stdin timed out after ${STDIN_TIMEOUT_MS / 1000}s — is the pipe stalled?`));
+      }, STDIN_TIMEOUT_MS);
+    };
+
+    const onData = (chunk: string) => {
+      chunks.push(Buffer.from(chunk));
+      resetTimer();
+    };
+
+    const onEnd = () => {
+      clearTimeout(timer);
+      clearListeners();
+      resolve(Buffer.concat(chunks).toString("utf8"));
+    };
+
+    const onError = (error: Error) => {
+      clearTimeout(timer);
+      clearListeners();
+      reject(error);
+    };
+
     process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-    process.stdin.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    process.stdin.on("error", reject);
+    process.stdin.on("data", onData);
+    process.stdin.on("end", onEnd);
+    process.stdin.on("error", onError);
+    resetTimer();
   });
-  let timer: ReturnType<typeof setTimeout>;
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`stdin timed out after ${STDIN_TIMEOUT_MS / 1000}s — is the pipe stalled?`)),
-      STDIN_TIMEOUT_MS,
-    );
-  });
-  return Promise.race([stdinPromise, timeoutPromise]).finally(() => clearTimeout(timer!));
 }
 
 export async function readFile(path: string): Promise<string> {

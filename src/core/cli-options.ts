@@ -7,6 +7,8 @@ export const PREVIEW_MODES: PreviewMode[] = [
   "json",
   "markdown",
   "github-pr",
+  "table",
+  "log",
   "text",
 ];
 
@@ -15,6 +17,7 @@ export interface ParsedCliArgs {
   version: boolean;
   inspect: boolean;
   explain: boolean;
+  follow: boolean;
   mode: PreviewMode;
   positional: string[];
   error?: string;
@@ -26,6 +29,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
     version: false,
     inspect: false,
     explain: false,
+    follow: false,
     mode: "auto",
     positional: [],
   };
@@ -53,6 +57,10 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.inspect = true;
         continue;
       }
+      if (arg === "--follow" || arg === "-f") {
+        parsed.follow = true;
+        continue;
+      }
       if (arg === "--explain" || arg === "--debug") {
         parsed.explain = true;
         continue;
@@ -60,7 +68,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       if (arg === "--mode" || arg === "-m") {
         const value = args[i + 1];
         if (!value || value.startsWith("-")) {
-          return { ...parsed, error: "Missing value for --mode. Use one of: auto, docs, dashboard, json, markdown, github-pr, text." };
+          return { ...parsed, error: `Missing value for --mode. Use one of: ${PREVIEW_MODES.join(", ")}.` };
         }
         const mode = parsePreviewMode(value);
         if (!mode) {

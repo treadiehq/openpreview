@@ -40,6 +40,10 @@ export function getSearchableContent(doc: AnyParsed): string {
       return doc.body + " " + doc.title + " " + doc.files.map((f) => f.path).join(" ");
     case "dashboard":
       return doc.panels.flatMap((p) => [p.title ?? "", ...p.values].filter(Boolean)).join(" ");
+    case "table":
+      return [doc.columns.join(" "), ...doc.rows.map((row) => row.join(" "))].join("\n");
+    case "log":
+      return doc.raw;
     default:
       return doc.content;
   }

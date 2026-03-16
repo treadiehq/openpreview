@@ -82,6 +82,18 @@ function getDocumentStats(doc: AnyParsed): Array<[string, string]> {
         ["Files", String(doc.files.length)],
         ["Comments", String(doc.comments.length)],
       ];
+    case "table":
+      return [
+        ["Columns", String(doc.columns.length)],
+        ["Rows", String(doc.rows.length)],
+        ["Format", doc.format],
+      ];
+    case "log":
+      return [
+        ["Entries", String(doc.entries.length)],
+        ["Errors", String(doc.counts.error)],
+        ["Warnings", String(doc.counts.warn)],
+      ];
     case "text":
       return [
         ["Lines", String(doc.content.split("\n").length)],
@@ -96,6 +108,10 @@ function formatModeLabel(mode: string): string {
       return "GitHub PR";
     case "json":
       return "JSON";
+    case "log":
+      return "Log";
+    case "table":
+      return "Table";
     case "docs":
     case "html":
       return "Docs";

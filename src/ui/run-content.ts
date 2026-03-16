@@ -22,6 +22,7 @@ import {
 } from "./state.ts";
 import { copyToClipboard, openURL } from "../utils/platform.ts";
 import { getHeader } from "./app.ts";
+import { isEscapeKey, isPlainKey, isTabKey, type KeyPressLike } from "./key-events.ts";
 import { getScreen } from "./screens/index.ts";
 import { wrapText } from "./utils/render-content.ts";
 
@@ -282,8 +283,8 @@ export function runContentApp(
   }
 
   refreshLayout();
-  renderer.keyInput.on("keypress", (key: { name?: string; sequence?: string; ctrl?: boolean }) => {
-    if (key.name === "escape" || key.sequence === "\x1b") {
+  renderer.keyInput.on("keypress", (key: KeyPressLike) => {
+    if (isEscapeKey(key)) {
       clearPendingSkillShortcut();
       if (helpOpen) {
         helpOpen = false;
@@ -314,7 +315,7 @@ export function runContentApp(
 
     if (helpOpen) {
       clearPendingSkillShortcut();
-      if (key.sequence === "?" || key.name === "q" || key.sequence === "q") {
+      if (isPlainKey(key, "?") || isPlainKey(key, "q")) {
         helpOpen = false;
         refreshLayout();
       }
@@ -323,7 +324,7 @@ export function runContentApp(
 
     if (inspectOpen) {
       clearPendingSkillShortcut();
-      if (key.sequence === "i" || key.name === "q" || key.sequence === "q") {
+      if (isPlainKey(key, "i") || isPlainKey(key, "q")) {
         inspectOpen = false;
         refreshLayout();
       }
@@ -365,7 +366,7 @@ export function runContentApp(
     }
 
     if (pendingSkillShortcut) {
-      if (key.name === "k" || key.sequence === "k" || key.sequence === "K") {
+      if (isPlainKey(key, "k") || isPlainKey(key, "K")) {
         clearPendingSkillShortcut();
         void doExportSkill();
         return;
@@ -373,19 +374,19 @@ export function runContentApp(
       clearPendingSkillShortcut();
     }
 
-    if ((key.name === "q" || key.sequence === "q") && !state.paletteOpen) {
+    if (isPlainKey(key, "q") && !state.paletteOpen) {
       renderer.destroy();
       process.exit(0);
     }
 
-    if (key.sequence === "?" && !state.paletteOpen) {
+    if (isPlainKey(key, "?") && !state.paletteOpen) {
       helpOpen = true;
       inspectOpen = false;
       refreshLayout();
       return;
     }
 
-    if ((key.name === "slash" || key.sequence === "/") && !state.paletteOpen) {
+    if (isPlainKey(key, "/") && !state.paletteOpen) {
       state.searchOpen = true;
       state.searchQuery = "";
       state.searchMatches = [];
@@ -400,30 +401,30 @@ export function runContentApp(
       return;
     }
 
-    if ((key.name === "i" || key.sequence === "i") && !state.paletteOpen && inspectInfo) {
+    if (isPlainKey(key, "i") && !state.paletteOpen && inspectInfo) {
       inspectOpen = !inspectOpen;
       helpOpen = false;
       refreshLayout();
       return;
     }
 
-    if ((key.name === "y" || key.sequence === "y") && !state.paletteOpen) {
+    if (isPlainKey(key, "y") && !state.paletteOpen) {
       void doCopy();
       return;
     }
 
-    if (canExportSkill && !state.paletteOpen && (key.name === "s" || key.sequence === "s" || key.sequence === "S")) {
+    if (canExportSkill && !state.paletteOpen && (isPlainKey(key, "s") || isPlainKey(key, "S"))) {
       armSkillShortcut();
       return;
     }
 
-    if ((key.name === "tab" || key.sequence === "\t") && !state.paletteOpen && focusables.length > 0) {
+    if (isTabKey(key) && !state.paletteOpen && focusables.length > 0) {
       state.focusIndex = (state.focusIndex + 1) % focusables.length;
       focusables[state.focusIndex]?.focus();
       return;
     }
 
-    if ((key.name === "r" || key.sequence === "r") && doc.kind === "json" && !state.paletteOpen) {
+    if (isPlainKey(key, "r") && doc.kind === "json" && !state.paletteOpen) {
       state.jsonViewMode = state.jsonViewMode === "structured" ? "raw" : "structured";
       refreshLayout();
       return;
@@ -534,6 +535,16 @@ function getInspectRows(
     case "github-pr":
       rows.push(["Files", String(doc.files.length)]);
       rows.push(["Comments", String(doc.comments.length)]);
+      break;
+    case "table":
+      rows.push(["Columns", String(doc.columns.length)]);
+      rows.push(["Rows", String(doc.rows.length)]);
+      rows.push(["Format", doc.format]);
+      break;
+    case "log":
+      rows.push(["Entries", String(doc.entries.length)]);
+      rows.push(["Errors", String(doc.counts.error)]);
+      rows.push(["Warnings", String(doc.counts.warn)]);
       break;
     case "text":
       rows.push(["Lines", String(doc.content.split("\n").length)]);

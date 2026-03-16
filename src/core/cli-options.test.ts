@@ -13,6 +13,11 @@ describe("parseCliArgs", () => {
     expect(parsed.positional).toEqual(["https://example.com"]);
   });
 
+  test("parses follow flag", () => {
+    const parsed = parseCliArgs(["--follow"]);
+    expect(parsed.follow).toBe(true);
+  });
+
   test("parses explain flag", () => {
     const parsed = parseCliArgs(["--explain", "https://example.com"]);
     expect(parsed.explain).toBe(true);
@@ -35,6 +40,11 @@ describe("parseCliArgs", () => {
     const parsed = parseCliArgs(["--mode=dashboard", "https://example.com"]);
     expect(parsed.mode).toBe("dashboard");
     expect(parsed.positional).toEqual(["https://example.com"]);
+  });
+
+  test("parses new table and log modes", () => {
+    expect(parseCliArgs(["--mode", "table"]).mode).toBe("table");
+    expect(parseCliArgs(["--mode", "log"]).mode).toBe("log");
   });
 
   test("supports -- to stop option parsing", () => {
