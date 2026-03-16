@@ -1,16 +1,18 @@
 import { Box, Text } from "@opentui/core";
+import { VERSION } from "../../core/version.ts";
 import { theme } from "../theme.ts";
 
-export type ShortcutKey = "q" | "/" | "Tab" | "Enter" | "y" | "r" | "?" | "i";
+export type ShortcutKey = "q" | "/" | "Tab" | "Enter" | "y" | "r" | "?" | "i" | "SK";
 
 const ALL_SHORTCUTS: [ShortcutKey, string][] = [
   ["q", "quit"],
   ["/", "search"],
   ["Tab", "panes"],
   ["Enter", "open"],
-  ["y", "copy"],
+  ["y", "copy all"],
   ["r", "raw"],
   ["i", "inspect"],
+  ["SK", "skill"],
   ["?", "help"],
 ];
 
@@ -21,7 +23,7 @@ export function Footer(opts?: {
 }) {
   const variant = opts?.variant ?? "shortcuts";
   if (variant === "welcome") {
-    const version = opts?.version ?? "1.0.0";
+    const version = opts?.version ?? VERSION;
     return Box(
       {
         flexDirection: "row",
@@ -41,7 +43,7 @@ export function Footer(opts?: {
   }
   if (variant === "status") {
     const cwd = process.cwd().replace(process.env.HOME ?? "", "~");
-    const version = opts?.version ?? "1.0.0";
+    const version = opts?.version ?? VERSION;
     return Box(
       {
         flexDirection: "row",

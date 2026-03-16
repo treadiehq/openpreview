@@ -63,7 +63,7 @@ export function getScreen(
     }
     default: {
       const s = TextScreen(doc.content, doc.source);
-      return { ...s, footerKeys: ["q", "/"] };
+      return { ...s, footerKeys: [...BASE_KEYS] };
     }
   }
 }

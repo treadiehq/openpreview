@@ -44,6 +44,7 @@ preview https://privateconnect.co
 preview <url>
 preview <file>
 <command> | preview
+preview skill <url>
 preview --mode docs <url>
 preview --inspect <url>
 preview --explain <url>
@@ -68,9 +69,30 @@ preview --mode dashboard ./fixtures/sample-dashboard.html
 - `/`: search
 - `Tab`: switch panes
 - `Enter`: open the selected link
-- `y`: copy the selected value
+- `y`: copy the full extracted content
+- `s` then `k`: export a skill bundle when the current content supports it
 - `i`: inspect fetch and detection details
 - `?`: show help
+
+## Skill export
+
+```bash
+preview skill <url>
+preview skill <file>
+cat notes.md | preview skill
+```
+
+Supported content:
+
+- Docs pages
+- Markdown
+- GitHub PR text
+- Plain text
+
+Each export is saved under `./openpreview-exports/` and includes:
+
+- `SKILL.md`
+- `references/source.md`
 
 ## Updating
 
@@ -101,10 +123,6 @@ bun run preview:privateconnect
 ```
 
 Manual test fixtures live in `fixtures/`.
-
-## Releases
-
-Pushing a version tag (e.g. `v0.0.5`) triggers [GitHub Actions](.github/workflows/release.yml), which builds **darwin-arm64** and **linux-x64** on native runners and publishes the release with both binaries. Locally, `bun run build:release` builds for your current platform only.
 
 ## License
 

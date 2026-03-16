@@ -54,9 +54,42 @@ function renderLine(
   return out;
 }
 
-export function Logo() {
+function renderWord(
+  lines: string[],
+  fg: string,
+  shadowFg: string,
+): ReturnType<typeof Box>[] {
+  return lines.map((line) =>
+    Box(
+      { flexDirection: "row" },
+      ...renderLine(line, fg, shadowFg),
+    ),
+  );
+}
+
+export type LogoVariant = "inline" | "stacked" | "minimal";
+
+export function Logo(opts?: { variant?: LogoVariant }) {
+  const variant = opts?.variant ?? "inline";
   const ls = tint(theme.bg, theme.textMuted);
   const rs = tint(theme.bg, theme.text);
+
+  if (variant === "minimal") {
+    return Box(
+      { flexDirection: "row", alignItems: "center", gap: 0 },
+      Text({ content: "open", fg: theme.textMuted }),
+      Text({ content: "preview", fg: theme.text }),
+    );
+  }
+
+  if (variant === "stacked") {
+    return Box(
+      { flexDirection: "column", alignItems: "center", gap: 0 },
+      ...renderWord(LEFT, theme.textMuted, ls),
+      ...renderWord(RIGHT, theme.text, rs),
+    );
+  }
+
   return Box(
     { flexDirection: "column", alignItems: "center", gap: 0 },
     ...LEFT.map((line, i) =>

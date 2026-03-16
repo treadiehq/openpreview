@@ -19,8 +19,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       const proc = Bun.spawn(["pbcopy"], { stdin: "pipe", stdout: "ignore", stderr: "ignore" });
       proc.stdin.write(new TextEncoder().encode(text));
       proc.stdin.end();
-      await proc.exited;
-      return true;
+      return (await proc.exited) === 0;
     }
     if (platform === "linux") {
       const proc = Bun.spawn(["xclip", "-selection", "clipboard"], {
@@ -30,8 +29,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       });
       proc.stdin.write(new TextEncoder().encode(text));
       proc.stdin.end();
-      await proc.exited;
-      return true;
+      return (await proc.exited) === 0;
     }
     if (platform === "win32") {
       const proc = Bun.spawn(["cmd", "/c", "clip"], {
@@ -41,8 +39,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       });
       proc.stdin.write(new TextEncoder().encode(text));
       proc.stdin.end();
-      await proc.exited;
-      return true;
+      return (await proc.exited) === 0;
     }
   } catch {
     // pbcopy/xclip/clip not available

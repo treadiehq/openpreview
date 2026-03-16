@@ -4,6 +4,11 @@
 
 import { createCliRenderer, Box, Text } from "@opentui/core";
 import type { AnyParsed, InputSource, PreviewInspectInfo } from "../core/models.ts";
+import {
+  exportSkillBundle,
+  renderDocumentForAgent,
+  supportsSkillExport,
+} from "../core/export.ts";
 import { theme } from "./theme.ts";
 import { Footer } from "./components/footer.ts";
 import type { ShortcutKey } from "./components/footer.ts";
@@ -41,12 +46,15 @@ export function runContentApp(
   const inspectInfo = options?.inspectInfo;
   const state: AppState = { ...initialAppState };
   const searchableContent = getSearchableContent(doc);
+  const canExportSkill = supportsSkillExport(doc);
   let focusables: SelectLike[] = [];
   let rootLayout: ReturnType<typeof Box> | null = null;
   let statusMessage = "";
   let statusTimer: ReturnType<typeof setTimeout> | null = null;
   let helpOpen = false;
   let inspectOpen = options?.showInspectOnStart ?? false;
+  let pendingSkillShortcut = false;
+  let pendingSkillTimer: ReturnType<typeof setTimeout> | null = null;
 
   function showStatus(msg: string, durationMs = 1500) {
     statusMessage = msg;
@@ -109,12 +117,18 @@ export function runContentApp(
     if (inspectInfo && !footerKeys.includes("i")) {
       footerKeys.push("i");
     }
+    if (canExportSkill && !footerKeys.includes("SK")) {
+      footerKeys.push("SK");
+    }
 
     const footer = Footer({ keys: footerKeys });
 
     const paletteCommands = [
       { name: "Search", description: "Focus search", value: "search" },
-      { name: "Copy selection", description: "Copy focused item", value: "copy" },
+      { name: "Copy full content", description: "Copy the extracted content", value: "copy" },
+      ...(canExportSkill
+        ? [{ name: "Export as skill", description: "Write a skill bundle to disk", value: "skill" }]
+        : []),
       ...(inspectInfo
         ? [{ name: "Inspect", description: "Show fetch and detection details", value: "inspect" }]
         : []),
@@ -132,7 +146,8 @@ export function runContentApp(
       paletteSelect = cp.select;
       cp.select.on("itemSelected", (_i: number, opt: { value: string }) => {
         if (opt.value === "search") state.searchOpen = true;
-        if (opt.value === "copy") doCopy();
+        if (opt.value === "copy") void doCopy();
+        if (opt.value === "skill") void doExportSkill();
         if (opt.value === "inspect") {
           inspectOpen = true;
           helpOpen = false;
@@ -159,12 +174,15 @@ export function runContentApp(
         ["N / Ctrl+p", "Previous search match"],
         ["Ctrl+p", "Open command palette"],
         ["Tab", "Cycle focus between panes"],
-        ["y", "Copy selected value"],
+        ["y", "Copy full content"],
         ["r", "Toggle raw JSON (JSON only)"],
         ["i", "Toggle inspect"],
         ["?", "Toggle this help"],
         ["↑ / ↓", "Navigate list items"],
       ];
+      if (canExportSkill) {
+        bindings.splice(8, 0, ["s then k", "Export skill bundle"]);
+      }
       helpOverlay = Box(
         {
           flexDirection: "column",
@@ -220,27 +238,53 @@ export function runContentApp(
   }
 
   async function doCopy(): Promise<void> {
-    if (focusables.length === 0) {
-      showStatus("Nothing to copy");
+    const text = renderDocumentForAgent(doc, source, inspectInfo);
+    const ok = await copyToClipboard(text);
+    showStatus(ok ? "Copied full content" : "Copy failed");
+  }
+
+  async function doExportSkill(): Promise<void> {
+    if (!canExportSkill) {
+      showStatus("Skill export not available");
       return;
     }
-    const idx = state.focusIndex % focusables.length;
-    const sel = focusables[idx] as any;
-    if (sel?.getSelectedOption) {
-      const opt = sel.getSelectedOption();
-      if (opt?.value !== undefined) {
-        const text = typeof opt.value === "string" ? opt.value : JSON.stringify(opt.value, null, 2);
-        const ok = await copyToClipboard(text);
-        showStatus(ok ? "Copied!" : "Copy failed");
-        return;
-      }
+
+    try {
+      const result = await exportSkillBundle(doc, source, inspectInfo);
+      const copied = await copyToClipboard(result.savedPath);
+      showStatus(
+        copied
+          ? `Skill saved: ${result.savedLabel} (path copied)`
+          : `Skill saved: ${result.savedLabel}`,
+        4000,
+      );
+    } catch (error) {
+      showStatus(`Skill export failed: ${(error as Error).message}`, 4000);
     }
-    showStatus("Nothing to copy");
+  }
+
+  function clearPendingSkillShortcut(): void {
+    pendingSkillShortcut = false;
+    if (pendingSkillTimer) {
+      clearTimeout(pendingSkillTimer);
+      pendingSkillTimer = null;
+    }
+  }
+
+  function armSkillShortcut(): void {
+    pendingSkillShortcut = true;
+    if (pendingSkillTimer) clearTimeout(pendingSkillTimer);
+    pendingSkillTimer = setTimeout(() => {
+      pendingSkillShortcut = false;
+      pendingSkillTimer = null;
+    }, 1200);
+    showStatus("Press k to export skill", 1200);
   }
 
   refreshLayout();
   renderer.keyInput.on("keypress", (key: { name?: string; sequence?: string; ctrl?: boolean }) => {
     if (key.name === "escape" || key.sequence === "\x1b") {
+      clearPendingSkillShortcut();
       if (helpOpen) {
         helpOpen = false;
         refreshLayout();
@@ -269,6 +313,7 @@ export function runContentApp(
     }
 
     if (helpOpen) {
+      clearPendingSkillShortcut();
       if (key.sequence === "?" || key.name === "q" || key.sequence === "q") {
         helpOpen = false;
         refreshLayout();
@@ -277,6 +322,7 @@ export function runContentApp(
     }
 
     if (inspectOpen) {
+      clearPendingSkillShortcut();
       if (key.sequence === "i" || key.name === "q" || key.sequence === "q") {
         inspectOpen = false;
         refreshLayout();
@@ -285,6 +331,7 @@ export function runContentApp(
     }
 
     if (state.searchOpen) {
+      clearPendingSkillShortcut();
       if (key.name === "backspace") {
         state.searchQuery = state.searchQuery.slice(0, -1);
         state.searchMatches = runSearch(searchableContent, state.searchQuery);
@@ -315,6 +362,15 @@ export function runContentApp(
         return;
       }
       return;
+    }
+
+    if (pendingSkillShortcut) {
+      if (key.name === "k" || key.sequence === "k" || key.sequence === "K") {
+        clearPendingSkillShortcut();
+        void doExportSkill();
+        return;
+      }
+      clearPendingSkillShortcut();
     }
 
     if ((key.name === "q" || key.sequence === "q") && !state.paletteOpen) {
@@ -352,7 +408,12 @@ export function runContentApp(
     }
 
     if ((key.name === "y" || key.sequence === "y") && !state.paletteOpen) {
-      doCopy();
+      void doCopy();
+      return;
+    }
+
+    if (canExportSkill && !state.paletteOpen && (key.name === "s" || key.sequence === "s" || key.sequence === "S")) {
+      armSkillShortcut();
       return;
     }
 

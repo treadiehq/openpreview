@@ -5,6 +5,7 @@
 
 import { createCliRenderer, Box } from "@opentui/core";
 import type { AnyParsed, InputSource, PreviewInspectInfo, PreviewMode } from "../core/models.ts";
+import { VERSION } from "../core/version.ts";
 import { theme } from "./theme.ts";
 import { Header } from "./components/header.ts";
 import { Footer } from "./components/footer.ts";
@@ -25,7 +26,11 @@ export async function runApp(input: InputSource | null, options?: RunAppOptions)
   if (!input) {
     const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
     setupQuitKeys(renderer);
-    const layout = buildLayout(renderer, WelcomeScreen(), undefined, { footerVariant: "welcome", version: "1.0.0", noHeader: true });
+    const layout = buildLayout(renderer, WelcomeScreen(renderer.width), undefined, {
+      footerVariant: "welcome",
+      version: VERSION,
+      noHeader: true,
+    });
     renderer.root.add(layout);
     return;
   }
