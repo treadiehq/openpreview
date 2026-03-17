@@ -64,7 +64,22 @@ export function TableScreen(renderer: RenderContext, doc: ParsedTable) {
     detailBox,
   );
 
-  return { body, focusables: [select], contentScrollBox: detailBox };
+  return {
+    body,
+    focusables: [select],
+    contentScrollBox: detailBox,
+    getContextCopy: () => {
+      const selected = select.getSelectedOption?.();
+      const index = typeof selected?.value === "number" ? selected.value : -1;
+      if (index < 0 || !doc.rows[index]) return null;
+      const row = doc.rows[index];
+      const pairs = doc.columns.map((column, columnIndex) => `${column}: ${row[columnIndex] ?? ""}`);
+      return {
+        label: `row ${index + 1}`,
+        text: pairs.join("\n"),
+      };
+    },
+  };
 }
 
 function renderRowDetail(

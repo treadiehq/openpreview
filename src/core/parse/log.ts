@@ -10,14 +10,14 @@ export function parseLog(raw: string, source: InputSource): ParsedLog {
 
     const parsedJsonLine = parseJsonLogLine(line);
     if (parsedJsonLine) {
-      if (current) entries.push(current);
+      if (current) entries.push(finalizeEntry(current, entries.length));
       current = parsedJsonLine;
       continue;
     }
 
     const parsedLine = parseStructuredLogLine(line);
     if (parsedLine) {
-      if (current) entries.push(current);
+      if (current) entries.push(finalizeEntry(current, entries.length));
       current = parsedLine;
       continue;
     }
@@ -28,8 +28,9 @@ export function parseLog(raw: string, source: InputSource): ParsedLog {
       continue;
     }
 
-    if (current) entries.push(current);
+    if (current) entries.push(finalizeEntry(current, entries.length));
     current = {
+      index: entries.length,
       level: "unknown",
       message: line,
       details: [],
@@ -37,14 +38,19 @@ export function parseLog(raw: string, source: InputSource): ParsedLog {
     };
   }
 
-  if (current) entries.push(current);
+  if (current) entries.push(finalizeEntry(current, entries.length));
+  const groups = groupEntries(entries);
+  const firstFailureIndex = entries.findIndex((entry) => entry.level === "error" || entry.level === "fatal");
 
   return {
     kind: "log",
     raw,
     source,
     entries,
+    groups,
     counts: countLevels(entries),
+    firstFailureIndex,
+    repeatedGroupCount: groups.filter((group) => group.count > 1).length,
   };
 }
 
@@ -106,6 +112,7 @@ function parseJsonLogLine(line: string): ParsedLogEntry | null {
     if (!timestamp && level === "unknown" && message === trimmed) return null;
 
     return {
+      index: -1,
       timestamp: timestamp ?? undefined,
       level,
       message,
@@ -123,6 +130,7 @@ function parseStructuredLogLine(line: string): ParsedLogEntry | null {
   );
   if (timestampFirst) {
     return {
+      index: -1,
       timestamp: timestampFirst[1] ?? undefined,
       level: normalizeLevel(timestampFirst[2]),
       message: (timestampFirst[3] || "").trim() || line.trim(),
@@ -136,6 +144,7 @@ function parseStructuredLogLine(line: string): ParsedLogEntry | null {
   );
   if (levelFirst) {
     return {
+      index: -1,
       level: normalizeLevel(levelFirst[1]),
       message: (levelFirst[2] || "").trim() || line.trim(),
       details: [],
@@ -192,6 +201,40 @@ function countLevels(entries: ParsedLogEntry[]): Record<LogLevel, number> {
   }
 
   return counts;
+}
+
+function finalizeEntry(entry: ParsedLogEntry, index: number): ParsedLogEntry {
+  return { ...entry, index };
+}
+
+function groupEntries(entries: ParsedLogEntry[]): ParsedLog["groups"] {
+  const groups: ParsedLog["groups"] = [];
+
+  for (const entry of entries) {
+    const key = `${entry.level}|${entry.message}`;
+    const previous = groups[groups.length - 1];
+
+    if (previous && previous.key === key) {
+      previous.entries.push(entry);
+      previous.count += 1;
+      previous.lastIndex = entry.index;
+      previous.raw = `${previous.raw}\n${entry.raw}`;
+      continue;
+    }
+
+    groups.push({
+      key,
+      level: entry.level,
+      message: entry.message,
+      entries: [entry],
+      count: 1,
+      firstIndex: entry.index,
+      lastIndex: entry.index,
+      raw: entry.raw,
+    });
+  }
+
+  return groups;
 }
 
 function normalizeLines(raw: string): string[] {

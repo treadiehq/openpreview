@@ -74,6 +74,7 @@ export async function runApp(input: InputSource | null, options?: RunAppOptions)
       truncated: loaded.inspectInfo.truncated,
       inspectInfo: loaded.inspectInfo,
       showInspectOnStart,
+      forcedMode,
     });
     return;
   }
@@ -113,6 +114,7 @@ export async function runApp(input: InputSource | null, options?: RunAppOptions)
       truncated: loaded.inspectInfo.truncated,
       inspectInfo: loaded.inspectInfo,
       showInspectOnStart,
+      forcedMode,
     });
     return;
   }
@@ -156,8 +158,9 @@ export function getHeader(
   truncated?: boolean,
   inspectInfo?: PreviewInspectInfo,
 ): ReturnType<typeof Box> {
-  const label = source.label ?? source.value;
+  const label = `${formatSourceType(source.type)} · ${source.label ?? source.value}`;
   const truncSuffix = truncated ? " (truncated)" : "";
+  const metaLabel = inspectInfo ? formatHeaderMeta(inspectInfo) : undefined;
   const modeLabel =
     inspectInfo
       ? `${inspectInfo.forcedMode === "auto" ? "Detected" : "Forced"}: ${formatModeLabel(
@@ -167,29 +170,47 @@ export function getHeader(
   const base = (() => {
     switch (doc.kind) {
       case "docs":
-        return { title: doc.title, subtitle: doc.description, sourceLabel: (doc.url || label) + truncSuffix };
+        return {
+          title: doc.title,
+          subtitle: [doc.description, metaLabel].filter(Boolean).join(" · "),
+          sourceLabel: `${formatSourceType("url")} · ${doc.url || source.value}${truncSuffix}`,
+        };
       case "json":
-        return { title: doc.schemaSummary, sourceLabel: label + truncSuffix };
+        return {
+          title: doc.schemaSummary,
+          subtitle: metaLabel,
+          sourceLabel: label + truncSuffix,
+        };
       case "markdown":
-        return { title: doc.title ?? "Markdown", sourceLabel: label + truncSuffix };
+        return { title: doc.title ?? "Markdown", subtitle: metaLabel, sourceLabel: label + truncSuffix };
       case "github-pr":
-        return { title: doc.title, subtitle: doc.author ? `by ${doc.author}` : undefined, sourceLabel: label + truncSuffix };
+        return {
+          title: doc.title,
+          subtitle: [doc.author ? `by ${doc.author}` : "", metaLabel].filter(Boolean).join(" · "),
+          sourceLabel: label + truncSuffix,
+        };
       case "dashboard":
-        return { title: doc.title, sourceLabel: label + truncSuffix };
+        return { title: doc.title, subtitle: metaLabel, sourceLabel: label + truncSuffix };
       case "table":
         return {
           title: "Table",
-          subtitle: `${doc.rows.length} rows · ${doc.columns.length} columns`,
+          subtitle: [`${doc.rows.length} rows · ${doc.columns.length} columns`, metaLabel].filter(Boolean).join(" · "),
           sourceLabel: label + truncSuffix,
         };
       case "log":
         return {
           title: "Log output",
-          subtitle: `${doc.entries.length} entries · ${formatLogCounts(doc.counts)}`,
+          subtitle: [`${doc.entries.length} entries · ${formatLogCounts(doc.counts)}`, metaLabel].filter(Boolean).join(" · "),
           sourceLabel: label + truncSuffix,
         };
+      case "diff":
+        return {
+          title: doc.title,
+          subtitle: [doc.summary, metaLabel].filter(Boolean).join(" · "),
+          sourceLabel: `DIFF · ${doc.leftLabel} ↔ ${doc.rightLabel}`,
+        };
       default:
-        return { title: "Text", sourceLabel: label + truncSuffix };
+        return { title: "Text", subtitle: metaLabel, sourceLabel: label + truncSuffix };
     }
   })();
   return Header({ ...base, search, status, modeLabel });
@@ -226,4 +247,35 @@ function formatLogCounts(counts: { error: number; warn: number; info: number; de
     counts.debug > 0 ? `DEBUG ${counts.debug}` : "",
   ].filter(Boolean);
   return parts.join(" · ") || "mixed levels";
+}
+
+function formatSourceType(sourceType: InputSource["type"]): string {
+  switch (sourceType) {
+    case "url":
+      return "URL";
+    case "file":
+      return "FILE";
+    case "stdin":
+      return "STDIN";
+    case "command":
+      return "COMMAND";
+  }
+}
+
+function formatHeaderMeta(inspectInfo: PreviewInspectInfo): string | undefined {
+  const parts = [
+    inspectInfo.contentType ? inspectInfo.contentType.split(";")[0] : "",
+    inspectInfo.statusCode ? `HTTP ${inspectInfo.statusCode}` : "",
+    inspectInfo.exitCode !== undefined ? `exit ${inspectInfo.exitCode}` : "",
+    inspectInfo.durationMs ? `${inspectInfo.durationMs} ms` : "",
+    `${formatBytesCompact(inspectInfo.displayedBytes)} shown`,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+function formatBytesCompact(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

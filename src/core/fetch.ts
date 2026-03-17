@@ -4,6 +4,7 @@
 
 import type { InputSource } from "./models.ts";
 import { readFile } from "./input.ts";
+import { runCommandWithMeta } from "./run-command.ts";
 import { VERSION } from "./version.ts";
 
 const FETCH_TIMEOUT_MS = 10_000;
@@ -16,6 +17,11 @@ export interface FetchResult {
   truncated?: boolean;
   totalBytes: number;
   displayedBytes: number;
+  durationMs?: number;
+  statusCode?: number;
+  finalUrl?: string;
+  exitCode?: number;
+  stderrBytes?: number;
 }
 
 export async function fetchContentWithMeta(source: InputSource): Promise<FetchResult> {
@@ -31,6 +37,15 @@ export async function fetchContentWithMeta(source: InputSource): Promise<FetchRe
     }
     case "url":
       return fetchUrl(source.value);
+    case "command": {
+      const result = await runCommandWithMeta(source);
+      return {
+        ...buildFetchResult(result.stdout),
+        durationMs: result.durationMs,
+        exitCode: result.exitCode,
+        stderrBytes: Buffer.byteLength(result.stderr, "utf8"),
+      };
+    }
     default:
       throw new Error(`Unknown source type: ${(source as InputSource).type}`);
   }
@@ -39,6 +54,7 @@ export async function fetchContentWithMeta(source: InputSource): Promise<FetchRe
 async function fetchUrl(url: string): Promise<FetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const started = performance.now();
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": `OpenPreview/${VERSION}` },
@@ -51,6 +67,9 @@ async function fetchUrl(url: string): Promise<FetchResult> {
     return {
       ...buildFetchResult(text),
       contentType,
+      durationMs: Math.round(performance.now() - started),
+      statusCode: res.status,
+      finalUrl: res.url || url,
     };
   } catch (e) {
     if ((e as Error).name === "AbortError") {

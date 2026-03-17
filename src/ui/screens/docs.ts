@@ -143,6 +143,25 @@ export function DocsScreen(renderer: RenderContext, doc: ParsedDocs) {
 
   renderSectionContent(renderer, detailBox, doc, -1);
 
+  const codeOptions = doc.codeBlocks.length > 0
+    ? doc.codeBlocks.map((block, index) => ({
+        name: `${block.language || "code"} #${index + 1}`,
+        description: "",
+        value: index,
+      }))
+    : [{ name: "(no code blocks)", description: "", value: -1 }];
+
+  const codeSelect = new SelectRenderable(renderer, {
+    width: SIDEBAR_WIDTH,
+    height: 7,
+    options: codeOptions,
+    showDescription: false,
+    backgroundColor: theme.bgElevated,
+    selectedBackgroundColor: theme.bgMuted,
+    selectedTextColor: theme.accent,
+    textColor: theme.textMuted,
+  });
+
   const keyLinks = doc.links.slice(0, 12);
   const linkOptions = keyLinks.length
     ? keyLinks.map((l) => ({
@@ -181,6 +200,8 @@ export function DocsScreen(renderer: RenderContext, doc: ParsedDocs) {
       },
       Text({ content: "Sections", fg: theme.textMuted }),
       select,
+      Text({ content: "Code", fg: theme.textMuted }),
+      codeSelect,
       Text({ content: "Links", fg: theme.textMuted }),
       linksSelect
     ),
@@ -193,8 +214,55 @@ export function DocsScreen(renderer: RenderContext, doc: ParsedDocs) {
 
   return {
     body,
-    focusables: [select, linksSelect],
+    focusables: [select, codeSelect, linksSelect],
     contentScrollBox: detailBox,
+    getContextCopy: (focusedIndex: number) => {
+      if (focusedIndex === 0) {
+        const selected = select.getSelectedOption?.();
+        const sectionIndex = typeof selected?.value === "number" ? selected.value : -1;
+        if (sectionIndex < 0) {
+          return {
+            label: "all sections",
+            text: renderAllSectionsForCopy(doc),
+          };
+        }
+        const section = doc.sections[sectionIndex];
+        if (!section) return null;
+        return {
+          label: `section ${section.title}`,
+          text: renderSectionForCopy(section),
+        };
+      }
+
+      if (focusedIndex === 1) {
+        const selected = codeSelect.getSelectedOption?.();
+        const codeIndex = typeof selected?.value === "number" ? selected.value : -1;
+        const block = codeIndex >= 0 ? doc.codeBlocks[codeIndex] : null;
+        if (!block) return null;
+        return {
+          label: `code block ${codeIndex + 1}`,
+          text: block.code,
+        };
+      }
+
+      const selected = linksSelect.getSelectedOption?.();
+      const href = typeof selected?.value === "string" ? selected.value : "";
+      if (!href) return null;
+      return {
+        label: "link",
+        text: href,
+      };
+    },
+    getOpenTarget: (focusedIndex: number) => {
+      if (focusedIndex !== 2) return null;
+      const selected = linksSelect.getSelectedOption?.();
+      return typeof selected?.value === "string" && selected.value ? selected.value : null;
+    },
+    getExternalUrl: (focusedIndex: number) => {
+      if (focusedIndex !== 2) return null;
+      const selected = linksSelect.getSelectedOption?.();
+      return typeof selected?.value === "string" && selected.value ? selected.value : null;
+    },
   };
 }
 
@@ -295,4 +363,24 @@ function wrapStyledLine(line: StyledLine, width: number): StyledLine[] {
 
 function getContentWidth(ctx: RenderContext): number {
   return Math.max(20, ctx.width - SIDEBAR_WIDTH - 7);
+}
+
+function renderAllSectionsForCopy(doc: ParsedDocs): string {
+  if (doc.sections.length === 0) {
+    return doc.mainContent.trim() || "(empty)";
+  }
+  return doc.sections.map((section) => renderSectionForCopy(section)).join("\n\n");
+}
+
+function renderSectionForCopy(section: ParsedDocs["sections"][number]): string {
+  return `${section.title}\n\n${replaceSectionCodeBlocks(section).trim() || "(empty)"}`.trim();
+}
+
+function replaceSectionCodeBlocks(section: ParsedDocs["sections"][number]): string {
+  return (section.content || "").replace(CODEBLOCK_TOKEN_RE, (_match, indexText) => {
+    const block = section.codeBlocks?.[Number(indexText)];
+    if (!block) return "";
+    const language = block.language?.trim() ?? "";
+    return `\n\`\`\`${language}\n${block.code.trimEnd()}\n\`\`\`\n`;
+  });
 }

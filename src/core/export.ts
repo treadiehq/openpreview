@@ -84,6 +84,13 @@ export function renderDocumentForAgent(
       parts.push("");
       parts.push("## Summary");
       parts.push(doc.schemaSummary);
+      parts.push(`Classification: ${doc.classification}`);
+      if (doc.errorSummary) {
+        parts.push(`Error: ${doc.errorSummary}`);
+      }
+      if ((doc.anomalies?.length ?? 0) > 0) {
+        parts.push(`Anomalies: ${doc.anomalies.join(" | ")}`);
+      }
       parts.push("");
       parts.push("## JSON");
       parts.push("```json");
@@ -146,6 +153,9 @@ export function renderDocumentForAgent(
       parts.push("## Log Summary");
       parts.push(`Entries: ${doc.entries.length}`);
       parts.push(`Error: ${doc.counts.error} · Warn: ${doc.counts.warn} · Info: ${doc.counts.info}`);
+      if (doc.groups) {
+        parts.push(`Collapsed groups: ${doc.groups.length}`);
+      }
       parts.push("");
       parts.push("## Log");
       parts.push("```text");
@@ -173,6 +183,34 @@ export function renderDocumentForAgent(
           }
           for (const link of panel.links ?? []) {
             parts.push(`- ${link}`);
+          }
+        }
+      }
+      break;
+    }
+    case "diff": {
+      parts.push("");
+      parts.push("## Comparison");
+      parts.push(`${doc.leftLabel} -> ${doc.rightLabel}`);
+      parts.push(doc.summary);
+
+      if (doc.entries.length > 0) {
+        parts.push("");
+        parts.push("## Changes");
+        for (const entry of doc.entries) {
+          parts.push("");
+          parts.push(`### ${entry.title}`);
+          parts.push(`Status: ${entry.status}`);
+          if (entry.detail) parts.push(entry.detail);
+          if (entry.before !== undefined) {
+            parts.push("");
+            parts.push("Before:");
+            parts.push(entry.before);
+          }
+          if (entry.after !== undefined) {
+            parts.push("");
+            parts.push("After:");
+            parts.push(entry.after);
           }
         }
       }
@@ -284,6 +322,8 @@ function getExportTitle(doc: AnyParsed): string {
       return doc.title || "GitHub PR";
     case "dashboard":
       return doc.title || "Dashboard";
+    case "diff":
+      return doc.title || "Diff";
     case "text":
       return "Text export";
   }

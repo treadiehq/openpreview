@@ -1,8 +1,8 @@
 # OpenPreview
 
-Preview URLs, files, and command output in your terminal.
+Preview URLs, files, logs, and command output in your terminal.
 
-It works well for docs pages, JSON, markdown, GitHub PR text, dashboards, CLI tables, logs, and plain text.
+OpenPreview is a docs browser, API inspector, log triage tool, and diff viewer for the terminal.
 
 > Instead of switching between terminal and browser, you can inspect APIs, docs, and output right where you’re already working.
 
@@ -43,6 +43,8 @@ preview https://privateconnect.co
 ```bash
 preview <url>
 preview <file>
+preview --cmd gh pr view 123
+preview diff before.json after.json
 <command> | preview
 <command> | preview --follow
 preview skill <url>
@@ -63,6 +65,8 @@ Examples:
 
 ```bash
 preview --mode docs https://resend.com
+preview --cmd curl https://api.example.com/users
+preview diff https://docs.example.com/v1 https://docs.example.com/v2
 preview --mode dashboard ./fixtures/sample-dashboard.html
 ps aux | preview
 docker logs app | preview
@@ -74,23 +78,42 @@ docker logs -f app | preview --follow
 - `q` or `Esc`: quit
 - `/`: search
 - `Tab`: switch panes
-- `Enter`: open the selected link
-- `y`: copy the full extracted content
+- `Enter`: follow the selected link or drill into JSON
+- `y`: copy the current section, row, code block, error group, or link
+- `Y`: copy the full extracted content
+- `b`: go back in docs or JSON navigation
+- `o`: open the current URL in your browser
+- `F`: jump to the first error in logs
 - `s` then `k`: export a skill bundle when the current content supports it
 - `i`: inspect fetch and detection details
 - `?`: show help
 
-## Tables, Logs, and Streams
+## Command output
 
 ```bash
+preview --cmd gh pr view 123
+preview --cmd kubectl get pods -o json
+preview --cmd docker logs api
 ps aux | preview
 docker logs app | preview
 docker logs -f app | preview --follow
+```
+
+Use `--cmd` when you want Preview to run the command for you. Use pipes when you already have the output in your shell flow.
+
+## Docs, JSON, logs, and diff
+
+```bash
+preview https://docs.example.com
+preview diff before.json after.json
+preview diff --left-cmd "kubectl get pods -o json" snapshots/pods.json
 preview --mode table ./fixtures/sample-table.txt
 preview --mode log ./fixtures/sample-log.txt
 ```
 
 `--follow` is for live stdin only. It keeps rendering new output and retains the last `10 MB` in memory.
+
+Docs mode keeps link history in-app, follows links with caching, and lets you copy the selected code block or link directly. JSON mode supports drill-down with path-aware copy. Log mode collapses repeats, filters by severity, and jumps to the first failure.
 
 ## Skill export
 

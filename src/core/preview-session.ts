@@ -18,7 +18,11 @@ export interface LoadedPreview {
 
 export async function loadPreview(source: InputSource, forcedMode: PreviewMode = "auto"): Promise<LoadedPreview> {
   const fetchResult = await fetchContentWithMeta(source);
-  const resolvedSource = source.type === "stdin" ? { ...source, label: "stdin" } : source;
+  const resolvedSource = source.type === "stdin"
+    ? { ...source, label: "stdin" }
+    : source.type === "command"
+      ? { ...source, label: source.label ?? source.value }
+      : source;
   const detected = detectContentType(fetchResult.content, resolvedSource, fetchResult.contentType, forcedMode);
   const doc = await parse(detected);
 
@@ -41,6 +45,11 @@ function buildInspectInfo(
     forcedMode,
     detectedType: detected.type,
     contentType: fetchResult.contentType,
+    durationMs: fetchResult.durationMs,
+    statusCode: fetchResult.statusCode,
+    finalUrl: fetchResult.finalUrl,
+    exitCode: fetchResult.exitCode,
+    stderrBytes: fetchResult.stderrBytes,
     totalBytes: fetchResult.totalBytes,
     displayedBytes: fetchResult.displayedBytes,
     truncated: fetchResult.truncated ?? false,

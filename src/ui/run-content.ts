@@ -3,7 +3,8 @@
  */
 
 import { createCliRenderer, Box, Text } from "@opentui/core";
-import type { AnyParsed, InputSource, PreviewInspectInfo } from "../core/models.ts";
+import { loadPreview } from "../core/preview-session.ts";
+import type { AnyParsed, InputSource, PreviewInspectInfo, PreviewMode } from "../core/models.ts";
 import {
   exportSkillBundle,
   renderDocumentForAgent,
@@ -35,6 +36,7 @@ export interface ContentAppOptions {
   truncated?: boolean;
   inspectInfo?: PreviewInspectInfo;
   showInspectOnStart?: boolean;
+  forcedMode?: PreviewMode;
 }
 
 export function runContentApp(
@@ -43,11 +45,12 @@ export function runContentApp(
   source: InputSource,
   options?: ContentAppOptions
 ): void {
-  const truncated = options?.truncated ?? false;
-  const inspectInfo = options?.inspectInfo;
   const state: AppState = { ...initialAppState };
-  const searchableContent = getSearchableContent(doc);
-  const canExportSkill = supportsSkillExport(doc);
+  let currentDoc = doc;
+  let currentSource = source;
+  let currentInspectInfo = options?.inspectInfo;
+  let currentTruncated = options?.truncated ?? false;
+  let currentScreen: ReturnType<typeof getScreen> | null = null;
   let focusables: SelectLike[] = [];
   let rootLayout: ReturnType<typeof Box> | null = null;
   let statusMessage = "";
@@ -56,6 +59,30 @@ export function runContentApp(
   let inspectOpen = options?.showInspectOnStart ?? false;
   let pendingSkillShortcut = false;
   let pendingSkillTimer: ReturnType<typeof setTimeout> | null = null;
+  const navigationHistory: Array<{
+    doc: AnyParsed;
+    source: InputSource;
+    inspectInfo?: PreviewInspectInfo;
+    truncated: boolean;
+  }> = [];
+  const previewCache = new Map<
+    string,
+    {
+      doc: AnyParsed;
+      source: InputSource;
+      inspectInfo?: PreviewInspectInfo;
+      truncated: boolean;
+    }
+  >();
+
+  if (currentSource.type === "url") {
+    previewCache.set(currentSource.value, {
+      doc: currentDoc,
+      source: currentSource,
+      inspectInfo: currentInspectInfo,
+      truncated: currentTruncated,
+    });
+  }
 
   function showStatus(msg: string, durationMs = 1500) {
     statusMessage = msg;
@@ -72,6 +99,8 @@ export function runContentApp(
       const first = renderer.root.getChildren()[0];
       if (first) renderer.root.remove(first.id);
     }
+    const searchableContent = getSearchableContent(currentDoc);
+    const canExportSkill = supportsSkillExport(currentDoc);
     const searchState = state.searchOpen
       ? {
           open: true as const,
@@ -80,8 +109,8 @@ export function runContentApp(
           currentIndex: Math.max(0, state.searchIndex),
         }
       : undefined;
-    const header = getHeader(doc, source, searchState, statusMessage, truncated, inspectInfo);
-    const notices = inspectInfo ? buildContentNotices(doc, source, inspectInfo) : [];
+    const header = getHeader(currentDoc, currentSource, searchState, statusMessage, currentTruncated, currentInspectInfo);
+    const notices = currentInspectInfo ? buildContentNotices(currentDoc, currentSource, currentInspectInfo) : [];
     const noticeBar = notices.length > 0 ? buildNoticeBar(renderer.width, notices) : null;
 
     let searchScrollLine: number | undefined;
@@ -92,22 +121,33 @@ export function runContentApp(
       }
     }
 
-    const screen = getScreen(renderer, doc, {
+    const screen = getScreen(renderer, currentDoc, {
       jsonViewMode: state.jsonViewMode,
       focusIndex: state.focusIndex,
       searchScrollLine,
     });
+    currentScreen = screen;
 
     focusables = screen.focusables ?? [];
 
-    for (const sel of focusables) {
+    focusables.forEach((sel, index) => {
       sel.on("itemSelected", (_i: number, opt: { value?: string }) => {
+        const target = screen.getOpenTarget?.(index);
+        if (target && /^https?:\/\//i.test(target)) {
+          void navigateToUrl(target);
+          return;
+        }
+        const external = screen.getExternalUrl?.(index);
+        if (external && /^https?:\/\//i.test(external)) {
+          openURL(external);
+          return;
+        }
         const val = opt?.value;
         if (typeof val === "string" && /^https?:\/\//i.test(val)) {
           openURL(val);
         }
       });
-    }
+    });
 
     const bodySection = Box(
       { flexGrow: 1, flexShrink: 1, overflow: "hidden" },
@@ -115,25 +155,41 @@ export function runContentApp(
     );
 
     const footerKeys: ShortcutKey[] = [...screen.footerKeys];
-    if (inspectInfo && !footerKeys.includes("i")) {
+    if (currentInspectInfo && !footerKeys.includes("i")) {
       footerKeys.push("i");
     }
     if (canExportSkill && !footerKeys.includes("SK")) {
       footerKeys.push("SK");
+    }
+    if (navigationHistory.length > 0 && !footerKeys.includes("b")) {
+      footerKeys.push("b");
+    }
+    if ((screen.getExternalUrl?.(state.focusIndex) || currentSource.type === "url") && !footerKeys.includes("o")) {
+      footerKeys.push("o");
+    }
+    if (!footerKeys.includes("Y")) {
+      footerKeys.push("Y");
     }
 
     const footer = Footer({ keys: footerKeys });
 
     const paletteCommands = [
       { name: "Search", description: "Focus search", value: "search" },
-      { name: "Copy full content", description: "Copy the extracted content", value: "copy" },
+      { name: "Copy current item", description: "Copy the focused item or section", value: "copy" },
+      { name: "Copy full content", description: "Copy the full extracted content", value: "copy-all" },
       ...(canExportSkill
         ? [{ name: "Export as skill", description: "Write a skill bundle to disk", value: "skill" }]
         : []),
-      ...(inspectInfo
+      ...(navigationHistory.length > 0
+        ? [{ name: "Back", description: "Return to the previous page", value: "back" }]
+        : []),
+      ...(screen.getExternalUrl?.(state.focusIndex) || currentSource.type === "url"
+        ? [{ name: "Open in browser", description: "Open the selected URL externally", value: "open-external" }]
+        : []),
+      ...(currentInspectInfo
         ? [{ name: "Inspect", description: "Show fetch and detection details", value: "inspect" }]
         : []),
-      ...(doc.kind === "json"
+      ...(currentDoc.kind === "json"
         ? [{ name: "Toggle raw JSON", description: "Switch view", value: "raw" }]
         : []),
       { name: "Quit", description: "Exit OpenPreview", value: "quit" },
@@ -147,8 +203,11 @@ export function runContentApp(
       paletteSelect = cp.select;
       cp.select.on("itemSelected", (_i: number, opt: { value: string }) => {
         if (opt.value === "search") state.searchOpen = true;
-        if (opt.value === "copy") void doCopy();
+        if (opt.value === "copy") void doContextCopy();
+        if (opt.value === "copy-all") void doCopyAll();
         if (opt.value === "skill") void doExportSkill();
+        if (opt.value === "back") void goBack();
+        if (opt.value === "open-external") void doOpenExternal();
         if (opt.value === "inspect") {
           inspectOpen = true;
           helpOpen = false;
@@ -175,12 +234,22 @@ export function runContentApp(
         ["N / Ctrl+p", "Previous search match"],
         ["Ctrl+p", "Open command palette"],
         ["Tab", "Cycle focus between panes"],
-        ["y", "Copy full content"],
+        ["y", "Copy current item"],
+        ["Y", "Copy full content"],
         ["r", "Toggle raw JSON (JSON only)"],
         ["i", "Toggle inspect"],
         ["?", "Toggle this help"],
         ["↑ / ↓", "Navigate list items"],
       ];
+      if (navigationHistory.length > 0) {
+        bindings.splice(9, 0, ["b", "Back to previous page"]);
+      }
+      if (screen.getExternalUrl?.(state.focusIndex) || currentSource.type === "url") {
+        bindings.splice(10, 0, ["o", "Open in browser"]);
+      }
+      if (screen.footerKeys.includes("F")) {
+        bindings.splice(10, 0, ["F", "Jump to first error"]);
+      }
       if (canExportSkill) {
         bindings.splice(8, 0, ["s then k", "Export skill bundle"]);
       }
@@ -206,8 +275,8 @@ export function runContentApp(
       );
     }
 
-    const inspectOverlay = inspectOpen && inspectInfo
-      ? buildInspectOverlay(doc, source, inspectInfo)
+    const inspectOverlay = inspectOpen && currentInspectInfo
+      ? buildInspectOverlay(currentDoc, currentSource, currentInspectInfo)
       : null;
 
     rootLayout = Box(
@@ -238,20 +307,32 @@ export function runContentApp(
     }
   }
 
-  async function doCopy(): Promise<void> {
-    const text = renderDocumentForAgent(doc, source, inspectInfo);
+  async function doContextCopy(): Promise<void> {
+    const action = currentScreen?.getContextCopy?.(state.focusIndex);
+    if (!action) {
+      await doCopyAll();
+      return;
+    }
+
+    const ok = await copyToClipboard(action.text);
+    showStatus(ok ? `Copied ${action.label}` : "Copy failed");
+  }
+
+  async function doCopyAll(): Promise<void> {
+    const text = renderDocumentForAgent(currentDoc, currentSource, currentInspectInfo);
     const ok = await copyToClipboard(text);
     showStatus(ok ? "Copied full content" : "Copy failed");
   }
 
   async function doExportSkill(): Promise<void> {
+    const canExportSkill = supportsSkillExport(currentDoc);
     if (!canExportSkill) {
       showStatus("Skill export not available");
       return;
     }
 
     try {
-      const result = await exportSkillBundle(doc, source, inspectInfo);
+      const result = await exportSkillBundle(currentDoc, currentSource, currentInspectInfo);
       const copied = await copyToClipboard(result.savedPath);
       showStatus(
         copied
@@ -262,6 +343,101 @@ export function runContentApp(
     } catch (error) {
       showStatus(`Skill export failed: ${(error as Error).message}`, 4000);
     }
+  }
+
+  async function doOpenExternal(): Promise<void> {
+    const target = currentScreen?.getExternalUrl?.(state.focusIndex)
+      ?? (currentSource.type === "url" ? currentSource.value : null);
+    if (!target) {
+      showStatus("No URL to open");
+      return;
+    }
+
+    const ok = openURL(target);
+    showStatus(ok ? "Opened in browser" : "Open failed");
+  }
+
+  async function navigateToUrl(url: string): Promise<void> {
+    if (!/^https?:\/\//i.test(url)) {
+      showStatus("Can only follow http(s) links");
+      return;
+    }
+
+    const cached = previewCache.get(url);
+    if (cached) {
+      navigationHistory.push({
+        doc: currentDoc,
+        source: currentSource,
+        inspectInfo: currentInspectInfo,
+        truncated: currentTruncated,
+      });
+      currentDoc = cached.doc;
+      currentSource = cached.source;
+      currentInspectInfo = cached.inspectInfo;
+      currentTruncated = cached.truncated;
+      state.focusIndex = 0;
+      state.searchOpen = false;
+      refreshLayout();
+      showStatus("Loaded from cache");
+      return;
+    }
+
+    showStatus("Loading page…", 2000);
+    try {
+      const loaded = await loadPreview(
+        {
+          type: "url",
+          value: url,
+          label: url,
+        },
+        options?.forcedMode ?? currentInspectInfo?.forcedMode ?? "auto",
+      );
+      navigationHistory.push({
+        doc: currentDoc,
+        source: currentSource,
+        inspectInfo: currentInspectInfo,
+        truncated: currentTruncated,
+      });
+      currentDoc = loaded.doc;
+      currentSource = loaded.source;
+      currentInspectInfo = loaded.inspectInfo;
+      currentTruncated = loaded.inspectInfo.truncated;
+      previewCache.set(url, {
+        doc: loaded.doc,
+        source: loaded.source,
+        inspectInfo: loaded.inspectInfo,
+        truncated: loaded.inspectInfo.truncated,
+      });
+      state.focusIndex = 0;
+      state.searchOpen = false;
+      state.searchQuery = "";
+      state.searchMatches = [];
+      state.searchIndex = 0;
+      inspectOpen = false;
+      helpOpen = false;
+      refreshLayout();
+      showStatus("Followed link");
+    } catch (error) {
+      showStatus(`Navigation failed: ${(error as Error).message}`, 4000);
+    }
+  }
+
+  function goBack(): void {
+    const previous = navigationHistory.pop();
+    if (!previous) {
+      showStatus("No history");
+      return;
+    }
+
+    currentDoc = previous.doc;
+    currentSource = previous.source;
+    currentInspectInfo = previous.inspectInfo;
+    currentTruncated = previous.truncated;
+    state.focusIndex = 0;
+    inspectOpen = false;
+    helpOpen = false;
+    refreshLayout();
+    showStatus("Went back");
   }
 
   function clearPendingSkillShortcut(): void {
@@ -333,6 +509,7 @@ export function runContentApp(
 
     if (state.searchOpen) {
       clearPendingSkillShortcut();
+      const searchableContent = getSearchableContent(currentDoc);
       if (key.name === "backspace") {
         state.searchQuery = state.searchQuery.slice(0, -1);
         state.searchMatches = runSearch(searchableContent, state.searchQuery);
@@ -401,18 +578,38 @@ export function runContentApp(
       return;
     }
 
-    if (isPlainKey(key, "i") && !state.paletteOpen && inspectInfo) {
+    if (isPlainKey(key, "i") && !state.paletteOpen && currentInspectInfo) {
       inspectOpen = !inspectOpen;
       helpOpen = false;
       refreshLayout();
       return;
     }
 
-    if (isPlainKey(key, "y") && !state.paletteOpen) {
-      void doCopy();
+    if (isPlainKey(key, "b") && !state.paletteOpen && navigationHistory.length > 0) {
+      goBack();
       return;
     }
 
+    if (!state.paletteOpen && currentScreen?.handleKey?.(key)) {
+      return;
+    }
+
+    if (isPlainKey(key, "y") && !state.paletteOpen) {
+      void doContextCopy();
+      return;
+    }
+
+    if (isPlainKey(key, "Y") && !state.paletteOpen) {
+      void doCopyAll();
+      return;
+    }
+
+    if (isPlainKey(key, "o") && !state.paletteOpen) {
+      void doOpenExternal();
+      return;
+    }
+
+    const canExportSkill = supportsSkillExport(currentDoc);
     if (canExportSkill && !state.paletteOpen && (isPlainKey(key, "s") || isPlainKey(key, "S"))) {
       armSkillShortcut();
       return;
@@ -424,7 +621,7 @@ export function runContentApp(
       return;
     }
 
-    if (isPlainKey(key, "r") && doc.kind === "json" && !state.paletteOpen) {
+    if (isPlainKey(key, "r") && currentDoc.kind === "json" && !state.paletteOpen) {
       state.jsonViewMode = state.jsonViewMode === "structured" ? "raw" : "structured";
       refreshLayout();
       return;
@@ -495,6 +692,8 @@ function getInspectRows(
     ["Detected mode", formatDetectedMode(inspectInfo.detectedType)],
     ["Parser", formatModeLabel(doc.kind)],
     ["Content-Type", inspectInfo.contentType ?? "(none)"],
+    ["Status", inspectInfo.statusCode ? String(inspectInfo.statusCode) : inspectInfo.exitCode !== undefined ? `exit ${inspectInfo.exitCode}` : "(none)"],
+    ["Duration", inspectInfo.durationMs ? `${inspectInfo.durationMs} ms` : "(unknown)"],
     [
       "Bytes",
       `${formatBytes(inspectInfo.displayedBytes)} shown / ${formatBytes(inspectInfo.totalBytes)} fetched`,
@@ -505,6 +704,12 @@ function getInspectRows(
 
   if (inspectInfo.truncationReason) {
     rows.push(["Truncation", inspectInfo.truncationReason]);
+  }
+  if (inspectInfo.finalUrl && inspectInfo.finalUrl !== source.value) {
+    rows.push(["Final URL", inspectInfo.finalUrl]);
+  }
+  if (typeof inspectInfo.stderrBytes === "number" && inspectInfo.stderrBytes > 0) {
+    rows.push(["stderr", formatBytes(inspectInfo.stderrBytes)]);
   }
   if (inspectInfo.nextAction) {
     rows.push(["Next step", inspectInfo.nextAction]);
@@ -526,7 +731,11 @@ function getInspectRows(
       break;
     case "json":
       rows.push(["Summary", doc.schemaSummary]);
+      rows.push(["Classification", doc.classification]);
       rows.push(["Array of objects", doc.isArrayOfObjects ? "yes" : "no"]);
+      if (doc.errorSummary) rows.push(["Error", doc.errorSummary]);
+      if (doc.pagination) rows.push(["Pagination", formatJsonPagination(doc.pagination)]);
+      if (doc.anomalies.length > 0) rows.push(["Anomalies", doc.anomalies.join(", ")]);
       break;
     case "markdown":
       rows.push(["Headings", String(doc.headings.length)]);
@@ -543,8 +752,17 @@ function getInspectRows(
       break;
     case "log":
       rows.push(["Entries", String(doc.entries.length)]);
+      rows.push(["Groups", String(doc.groups.length)]);
       rows.push(["Errors", String(doc.counts.error)]);
       rows.push(["Warnings", String(doc.counts.warn)]);
+      rows.push(["Collapsed repeats", String(doc.repeatedGroupCount)]);
+      break;
+    case "diff":
+      rows.push(["Left", `${doc.leftKind} · ${doc.leftLabel}`]);
+      rows.push(["Right", `${doc.rightKind} · ${doc.rightLabel}`]);
+      rows.push(["Changed", String(doc.stats.changed)]);
+      rows.push(["Added", String(doc.stats.added)]);
+      rows.push(["Removed", String(doc.stats.removed)]);
       break;
     case "text":
       rows.push(["Lines", String(doc.content.split("\n").length)]);
@@ -599,6 +817,24 @@ function buildContentNotices(
     notices.push({
       level: "info",
       message: [inspectInfo.detectionSummary, inspectInfo.nextAction].filter(Boolean).join(" "),
+    });
+  } else if (doc.kind === "json") {
+    if (doc.errorSummary) {
+      notices.push({
+        level: "warning",
+        message: `Detected JSON error payload. ${doc.errorSummary}`,
+      });
+    }
+    for (const anomaly of doc.anomalies.slice(0, 2)) {
+      notices.push({
+        level: "info",
+        message: anomaly,
+      });
+    }
+  } else if (doc.kind === "log" && doc.repeatedGroupCount > 0) {
+    notices.push({
+      level: "info",
+      message: `Collapsed ${doc.repeatedGroupCount} repeated log groups to keep the triage view readable.`,
     });
   } else if (inspectInfo.jsHeavy) {
     notices.push({
@@ -664,4 +900,13 @@ function formatSignalList(signals: PreviewInspectInfo["signals"]): string {
   return matched
     .map((signal) => (signal.detail ? `${signal.name} (${signal.detail})` : signal.name))
     .join(", ");
+}
+
+function formatJsonPagination(pagination: NonNullable<Extract<AnyParsed, { kind: "json" }>["pagination"]>): string {
+  return [
+    pagination.itemPath ? `items ${pagination.itemPath}` : "",
+    pagination.totalPath ? `total ${pagination.totalPath}` : "",
+    pagination.nextPath ? `next ${pagination.nextPath}` : "",
+    pagination.hasMore !== undefined ? `hasMore ${String(pagination.hasMore)}` : "",
+  ].filter(Boolean).join(" · ");
 }

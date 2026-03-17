@@ -33,6 +33,12 @@ describe("resolveInput", () => {
     expect(r!.type).toBe("file");
     expect(r!.value).toBe("--literal-file.md");
   });
+  test("resolves an explicit command source", () => {
+    const r = resolveInput([], { stdin: false, commandArgs: ["gh", "pr", "view", "123"] });
+    expect(r).not.toBeNull();
+    expect(r!.type).toBe("command");
+    expect(r!.value).toBe("gh pr view 123");
+  });
 });
 
 describe("detectContentType", () => {

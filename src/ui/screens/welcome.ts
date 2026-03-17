@@ -6,14 +6,10 @@ import { wrapText } from "../utils/render-content.ts";
 const usageLines: [string, string][] = [
   ["preview <url>", "Preview a web page"],
   ["preview <file>", "Preview a local file (.md .json .html)"],
-  ["ps aux | preview", "Preview CLI tables"],
-  ["docker logs app | preview", "Preview log output"],
-  ["docker logs -f app | preview --follow", "Follow live logs"],
-  ["preview --explain <url>", "Print detection and fetch details"],
-  ["gh pr view 123 | preview", "Preview a GitHub PR"],
-  ["preview --mode docs <url>", "Force docs mode for a page"],
   ["cat file | preview", "Pipe any content"],
   ["curl <api-url> | preview", "Preview an API response"],
+  ["docker logs app | preview", "Preview log output"],
+  ["preview diff before.json after.json", "Compare two captures"],
 ];
 
 type WelcomeLayout = {

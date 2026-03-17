@@ -2,14 +2,31 @@ import { Box, Text } from "@opentui/core";
 import { VERSION } from "../../core/version.ts";
 import { theme } from "../theme.ts";
 
-export type ShortcutKey = "q" | "/" | "Tab" | "Enter" | "y" | "r" | "?" | "i" | "SK";
+export type ShortcutKey =
+  | "q"
+  | "/"
+  | "Tab"
+  | "Enter"
+  | "y"
+  | "Y"
+  | "b"
+  | "o"
+  | "F"
+  | "r"
+  | "?"
+  | "i"
+  | "SK";
 
 const ALL_SHORTCUTS: [ShortcutKey, string][] = [
   ["q", "quit"],
   ["/", "search"],
   ["Tab", "panes"],
   ["Enter", "open"],
-  ["y", "copy all"],
+  ["y", "copy"],
+  ["Y", "copy all"],
+  ["b", "back"],
+  ["o", "browser"],
+  ["F", "first err"],
   ["r", "raw"],
   ["i", "inspect"],
   ["SK", "skill"],

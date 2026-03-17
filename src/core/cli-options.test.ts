@@ -18,6 +18,13 @@ describe("parseCliArgs", () => {
     expect(parsed.follow).toBe(true);
   });
 
+  test("parses command mode and collects remaining args", () => {
+    const parsed = parseCliArgs(["--mode", "json", "--cmd", "kubectl", "get", "pods", "-o", "json"]);
+    expect(parsed.command).toBe(true);
+    expect(parsed.commandArgs).toEqual(["kubectl", "get", "pods", "-o", "json"]);
+    expect(parsed.mode).toBe("json");
+  });
+
   test("parses explain flag", () => {
     const parsed = parseCliArgs(["--explain", "https://example.com"]);
     expect(parsed.explain).toBe(true);

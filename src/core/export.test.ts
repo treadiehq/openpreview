@@ -70,6 +70,9 @@ describe("renderDocumentForAgent", () => {
       schemaSummary: "Object with 2 keys",
       isArrayOfObjects: false,
       node: null,
+      classification: "object",
+      entries: [],
+      anomalies: [],
     };
 
     const result = renderDocumentForAgent(doc, {
@@ -96,8 +99,20 @@ describe("renderDocumentForAgent", () => {
       kind: "log",
       raw: "2026-03-16T09:00:00Z INFO Started",
       source: urlSource,
-      entries: [{ timestamp: "2026-03-16T09:00:00Z", level: "info", message: "Started", details: [], raw: "2026-03-16T09:00:00Z INFO Started" }],
+      entries: [{ index: 0, timestamp: "2026-03-16T09:00:00Z", level: "info", message: "Started", details: [], raw: "2026-03-16T09:00:00Z INFO Started" }],
+      groups: [{
+        key: "info|Started",
+        level: "info",
+        message: "Started",
+        entries: [{ index: 0, timestamp: "2026-03-16T09:00:00Z", level: "info", message: "Started", details: [], raw: "2026-03-16T09:00:00Z INFO Started" }],
+        count: 1,
+        firstIndex: 0,
+        lastIndex: 0,
+        raw: "2026-03-16T09:00:00Z INFO Started",
+      }],
       counts: { trace: 0, debug: 0, info: 1, warn: 0, error: 0, fatal: 0, unknown: 0 },
+      firstFailureIndex: -1,
+      repeatedGroupCount: 0,
     };
 
     expect(renderDocumentForAgent(table, urlSource)).toContain("## Table");
@@ -128,6 +143,9 @@ describe("supportsSkillExport", () => {
       schemaSummary: "Object",
       isArrayOfObjects: false,
       node: null,
+      classification: "object",
+      entries: [],
+      anomalies: [],
     };
 
     expect(supportsSkillExport(docs)).toBe(true);
@@ -145,7 +163,10 @@ describe("supportsSkillExport", () => {
       raw: "INFO Started",
       source: urlSource,
       entries: [],
+      groups: [],
       counts: { trace: 0, debug: 0, info: 0, warn: 0, error: 0, fatal: 0, unknown: 0 },
+      firstFailureIndex: -1,
+      repeatedGroupCount: 0,
     })).toBe(true);
     expect(supportsSkillExport(json)).toBe(false);
   });

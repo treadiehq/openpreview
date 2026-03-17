@@ -49,6 +49,9 @@ describe("getSearchableContent", () => {
       schemaSummary: "object: a",
       isArrayOfObjects: false,
       node: { type: "object", keys: ["a"], value: { a: 1 } },
+      classification: "object",
+      entries: [],
+      anomalies: [],
     };
     expect(getSearchableContent(doc)).toContain('"a"');
   });

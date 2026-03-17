@@ -34,6 +34,14 @@ export function getSearchableContent(doc: AnyParsed): string {
       }).join(" ");
     case "json":
       return JSON.stringify(doc.root);
+    case "diff":
+      return [
+        doc.title,
+        doc.summary,
+        doc.leftLabel,
+        doc.rightLabel,
+        ...doc.entries.flatMap((entry) => [entry.title, entry.detail ?? "", entry.before ?? "", entry.after ?? ""]),
+      ].join("\n");
     case "markdown":
       return doc.raw;
     case "github-pr":

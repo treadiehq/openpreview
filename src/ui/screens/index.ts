@@ -13,6 +13,8 @@ import { GitHubPRScreen } from "./github-pr.ts";
 import { DashboardScreen } from "./dashboard.ts";
 import { TableScreen } from "./table.ts";
 import { LogScreen } from "./log.ts";
+import { DiffScreen } from "./diff.ts";
+import type { KeyPressLike } from "../key-events.ts";
 
 export interface ScreenOptions {
   jsonViewMode?: "structured" | "raw";
@@ -25,13 +27,25 @@ type Renderer = Awaited<ReturnType<typeof createCliRenderer>>;
 type SelectComponent = {
   focus: () => void;
   on: (ev: string, fn: (...args: any[]) => void) => void;
+  getSelectedOption?: () => { name: string; description: string; value?: any } | null;
+  getSelectedIndex?: () => number;
+  setSelectedIndex?: (index: number) => void;
 };
+
+export interface ScreenCopyAction {
+  label: string;
+  text: string;
+}
 
 export interface ScreenResult {
   body: ReturnType<typeof import("@opentui/core").Box>;
   focusables: SelectComponent[];
   footerKeys: ShortcutKey[];
   contentScrollBox?: { scrollTo(position: number): void };
+  getContextCopy?: (focusedIndex: number) => ScreenCopyAction | null;
+  getOpenTarget?: (focusedIndex: number) => string | null;
+  getExternalUrl?: (focusedIndex: number) => string | null;
+  handleKey?: (key: KeyPressLike) => boolean;
 }
 
 const BASE_KEYS: ShortcutKey[] = ["q", "/", "y", "?"];
@@ -49,7 +63,7 @@ export function getScreen(
     }
     case "json": {
       const s = JsonScreen(renderer, doc, opts);
-      return { ...s, footerKeys: [...BASE_KEYS, "Tab", "r"] };
+      return { ...s, footerKeys: [...BASE_KEYS, "Tab", "Enter", "r", "b"] };
     }
     case "markdown": {
       const s = MarkdownScreen(renderer, doc);
@@ -57,7 +71,7 @@ export function getScreen(
     }
     case "github-pr": {
       const s = GitHubPRScreen(renderer, doc);
-      return { ...s, footerKeys: [...BASE_KEYS, "Enter"] };
+      return { ...s, footerKeys: [...BASE_KEYS] };
     }
     case "dashboard": {
       const s = DashboardScreen(renderer, doc);
@@ -69,6 +83,10 @@ export function getScreen(
     }
     case "log": {
       const s = LogScreen(renderer, doc);
+      return { ...s, footerKeys: [...BASE_KEYS, "Tab", "F"] };
+    }
+    case "diff": {
+      const s = DiffScreen(renderer, doc);
       return { ...s, footerKeys: [...BASE_KEYS] };
     }
     default: {

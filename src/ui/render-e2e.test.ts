@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Box } from "@opentui/core";
 import { createTestRenderer } from "@opentui/core/testing";
+import { buildPreviewDiff } from "../core/diff.ts";
 import { loadPreview } from "../core/preview-session.ts";
 import { VERSION } from "../core/version.ts";
 import { Footer } from "./components/footer.ts";
@@ -31,9 +32,10 @@ describe("content rendering", () => {
         expect(frame).toContain("preview <url>");
         expect(frame).toContain("Preview a web page");
         expect(frame).toContain("Preview a local file");
-        expect(frame).toContain("Print detection and");
-        expect(frame).toContain("fetch details");
-        expect(frame).toContain("Preview a GitHub PR");
+        expect(frame).toContain("cat file | preview");
+        expect(frame).toContain("Preview an API response");
+        expect(frame).toContain("Preview log output");
+        expect(frame).toContain("Compare two captures");
         expect(frame).toContain(VERSION);
       } finally {
         renderer.destroy();
@@ -157,7 +159,7 @@ describe("content rendering", () => {
       expect(frame).toContain("Dashboard");
       expect(frame).toContain("Info");
       expect(frame).toContain("Detected Dashboard mode from HTML");
-      expect(frame).toContain("panel/card classes");
+      expect(frame).toContain("metric/status signals");
     } finally {
       renderer.destroy();
     }
@@ -220,6 +222,38 @@ describe("content rendering", () => {
       expect(frame).toContain("All (4)");
       expect(frame).toContain("ERROR");
       expect(frame).toContain("Failed to parse page");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("renders the diff screen", async () => {
+    const left = await loadPreview({
+      type: "file",
+      value: "fixtures/sample-log.txt",
+      label: "sample-log.txt",
+    });
+    const right = await loadPreview({
+      type: "file",
+      value: "fixtures/sample-table.txt",
+      label: "sample-table.txt",
+    });
+    const diff = buildPreviewDiff(left, right);
+
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 110,
+      height: 28,
+    });
+
+    try {
+      runContentApp(renderer, diff, { type: "file", value: "diff", label: "comparison" });
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("Preview diff");
+      expect(frame).toContain("Parsed mode changed");
+      expect(frame).toContain("sample-log.txt");
+      expect(frame).toContain("sample-table.txt");
     } finally {
       renderer.destroy();
     }

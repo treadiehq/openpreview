@@ -15,9 +15,21 @@ export function hasStdin(): boolean {
 export interface ResolveInputOptions {
   /** Override stdin detection (e.g. for tests). Default: use process.stdin.isTTY */
   stdin?: boolean;
+  /** Explicit command tokens passed via --cmd */
+  commandArgs?: string[];
 }
 
 export function resolveInput(args: string[], options?: ResolveInputOptions): InputSource | null {
+  if (options?.commandArgs && options.commandArgs.length > 0) {
+    const value = options.commandArgs.join(" ");
+    return {
+      type: "command",
+      value,
+      label: value,
+      args: options.commandArgs,
+    };
+  }
+
   const arg = args[0]?.trim();
   if (arg) {
     if (URL_REGEX.test(arg)) {

@@ -12,6 +12,8 @@ export function buildExplainReport(loaded: LoadedPreview): string {
     `Detected mode: ${formatDetectedMode(inspectInfo.detectedType)}`,
     `Parser: ${formatModeLabel(doc.kind)}`,
     `Content-Type: ${inspectInfo.contentType ?? "(none)"}`,
+    `Status: ${inspectInfo.statusCode ? String(inspectInfo.statusCode) : inspectInfo.exitCode !== undefined ? `exit ${inspectInfo.exitCode}` : "(none)"}`,
+    `Duration: ${inspectInfo.durationMs ? `${inspectInfo.durationMs} ms` : "(unknown)"}`,
     `Bytes: ${formatBytes(inspectInfo.displayedBytes)} shown / ${formatBytes(inspectInfo.totalBytes)} fetched`,
     `Truncated: ${inspectInfo.truncated ? "yes" : "no"}`,
     `Reason: ${inspectInfo.detectionSummary}`,
@@ -20,6 +22,9 @@ export function buildExplainReport(loaded: LoadedPreview): string {
 
   if (inspectInfo.truncationReason) {
     lines.push(`Truncation: ${inspectInfo.truncationReason}`);
+  }
+  if (inspectInfo.finalUrl && inspectInfo.finalUrl !== source.value) {
+    lines.push(`Final URL: ${inspectInfo.finalUrl}`);
   }
   if (inspectInfo.nextAction) {
     lines.push(`Next step: ${inspectInfo.nextAction}`);
@@ -68,7 +73,10 @@ function getDocumentStats(doc: AnyParsed): Array<[string, string]> {
     case "json":
       return [
         ["Summary", doc.schemaSummary],
+        ["Classification", doc.classification],
         ["Array of objects", doc.isArrayOfObjects ? "yes" : "no"],
+        ...(doc.errorSummary ? [["Error", doc.errorSummary] as [string, string]] : []),
+        ...(doc.anomalies.length > 0 ? [["Anomalies", doc.anomalies.join(", ")] as [string, string]] : []),
       ];
     case "markdown":
       return [
@@ -91,8 +99,17 @@ function getDocumentStats(doc: AnyParsed): Array<[string, string]> {
     case "log":
       return [
         ["Entries", String(doc.entries.length)],
+        ["Groups", String(doc.groups.length)],
         ["Errors", String(doc.counts.error)],
         ["Warnings", String(doc.counts.warn)],
+      ];
+    case "diff":
+      return [
+        ["Left", `${doc.leftKind} · ${doc.leftLabel}`],
+        ["Right", `${doc.rightKind} · ${doc.rightLabel}`],
+        ["Changed", String(doc.stats.changed)],
+        ["Added", String(doc.stats.added)],
+        ["Removed", String(doc.stats.removed)],
       ];
     case "text":
       return [

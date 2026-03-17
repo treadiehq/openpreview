@@ -62,6 +62,20 @@ describe("parseJson", () => {
     const doc = parseJson('[1, "two", null]', stdin);
     expect(doc.isArrayOfObjects).toBe(false);
   });
+
+  test("classifies error payloads and anomalies", () => {
+    const doc = parseJson('{"status":404,"error":"Not found","request_id":null}', stdin);
+    expect(doc.classification).toBe("error");
+    expect(doc.errorSummary).toContain("404");
+    expect(doc.anomalies.join(" ")).toContain("Null top-level");
+  });
+
+  test("detects paginated responses", () => {
+    const doc = parseJson('{"items":[{"id":1}],"next":"cursor_2","total":10,"hasMore":true}', stdin);
+    expect(doc.classification).toBe("paginated");
+    expect(doc.pagination?.itemPath).toBe("items");
+    expect(doc.pagination?.totalPath).toBe("total");
+  });
 });
 
 describe("parseMarkdown", () => {
@@ -439,6 +453,22 @@ describe("parseLog", () => {
     expect(doc.entries.length).toBe(2);
     expect(doc.entries[0]?.timestamp).toBe("2026-03-16T09:00:00Z");
     expect(doc.entries[1]?.level).toBe("error");
+  });
+
+  test("collapses repeated groups and records first failure", () => {
+    const raw = [
+      "INFO booted",
+      "INFO booted",
+      "WARN slow query",
+      "ERROR failed to connect",
+      "ERROR failed to connect",
+    ].join("\n");
+    const doc = parseLog(raw, stdin);
+
+    expect(doc.groups.length).toBe(3);
+    expect(doc.groups[0]?.count).toBe(2);
+    expect(doc.firstFailureIndex).toBe(3);
+    expect(doc.repeatedGroupCount).toBe(2);
   });
 });
 

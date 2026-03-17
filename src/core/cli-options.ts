@@ -18,6 +18,8 @@ export interface ParsedCliArgs {
   inspect: boolean;
   explain: boolean;
   follow: boolean;
+  command: boolean;
+  commandArgs: string[];
   mode: PreviewMode;
   positional: string[];
   error?: string;
@@ -30,6 +32,8 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
     inspect: false,
     explain: false,
     follow: false,
+    command: false,
+    commandArgs: [],
     mode: "auto",
     positional: [],
   };
@@ -60,6 +64,14 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       if (arg === "--follow" || arg === "-f") {
         parsed.follow = true;
         continue;
+      }
+      if (arg === "--cmd" || arg === "-c") {
+        parsed.command = true;
+        parsed.commandArgs = args.slice(i + 1);
+        if (parsed.commandArgs.length === 0) {
+          return { ...parsed, error: "Missing command after --cmd." };
+        }
+        break;
       }
       if (arg === "--explain" || arg === "--debug") {
         parsed.explain = true;
@@ -97,7 +109,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
   return parsed;
 }
 
-function parsePreviewMode(value: string): PreviewMode | null {
+export function parsePreviewMode(value: string): PreviewMode | null {
   const mode = value.trim().toLowerCase() as PreviewMode;
   return PREVIEW_MODES.includes(mode) ? mode : null;
 }

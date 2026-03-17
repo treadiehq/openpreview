@@ -3,7 +3,7 @@
  * Keeps the pipeline typed and extensible for new modes.
  */
 
-export type InputSourceType = "url" | "file" | "stdin";
+export type InputSourceType = "url" | "file" | "stdin" | "command";
 export type PreviewMode =
   | "auto"
   | "docs"
@@ -21,6 +21,8 @@ export interface InputSource {
   value: string;
   /** Optional display label (e.g. filename, truncated URL) */
   label?: string;
+  /** Optional argv or shell tokens for command execution */
+  args?: string[];
 }
 
 export type ContentType =
@@ -60,6 +62,12 @@ export interface PreviewInspectInfo {
   forcedMode: PreviewMode;
   detectedType: ContentType;
   contentType?: string;
+  durationMs?: number;
+  statusCode?: number;
+  finalUrl?: string;
+  exitCode?: number;
+  stderrBytes?: number;
+  cached?: boolean;
   totalBytes: number;
   displayedBytes: number;
   truncated: boolean;
@@ -127,6 +135,27 @@ export interface ParsedJson {
   rows?: Record<string, unknown>[];
   /** For tree view */
   node: JsonNode | null;
+  classification: "object" | "array" | "error" | "paginated" | "schema" | "primitive";
+  entries: JsonEntrySummary[];
+  errorSummary?: string;
+  pagination?: JsonPaginationInfo;
+  anomalies: string[];
+}
+
+export interface JsonEntrySummary {
+  path: string;
+  label: string;
+  type: "object" | "array" | "string" | "number" | "boolean" | "null";
+  preview: string;
+  value: unknown;
+}
+
+export interface JsonPaginationInfo {
+  itemPath?: string;
+  nextPath?: string;
+  totalPath?: string;
+  count?: number;
+  hasMore?: boolean;
 }
 
 // --- Markdown model ---
@@ -205,10 +234,22 @@ export interface ParsedTable {
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal" | "unknown";
 
 export interface ParsedLogEntry {
+  index: number;
   timestamp?: string;
   level: LogLevel;
   message: string;
   details: string[];
+  raw: string;
+}
+
+export interface ParsedLogGroup {
+  key: string;
+  level: LogLevel;
+  message: string;
+  entries: ParsedLogEntry[];
+  count: number;
+  firstIndex: number;
+  lastIndex: number;
   raw: string;
 }
 
@@ -217,7 +258,40 @@ export interface ParsedLog {
   raw: string;
   source: InputSource;
   entries: ParsedLogEntry[];
+  groups: ParsedLogGroup[];
   counts: Record<LogLevel, number>;
+  firstFailureIndex: number;
+  repeatedGroupCount: number;
+}
+
+// --- Diff ---
+export type DiffStatus = "added" | "removed" | "changed" | "unchanged";
+
+export interface DiffEntry {
+  id: string;
+  title: string;
+  status: DiffStatus;
+  category: "summary" | "path" | "section" | "row" | "issue" | "line";
+  before?: string;
+  after?: string;
+  detail?: string;
+}
+
+export interface ParsedDiff {
+  kind: "diff";
+  title: string;
+  summary: string;
+  leftLabel: string;
+  rightLabel: string;
+  leftKind: AnyParsedKind;
+  rightKind: AnyParsedKind;
+  entries: DiffEntry[];
+  stats: {
+    added: number;
+    removed: number;
+    changed: number;
+    unchanged: number;
+  };
 }
 
 // --- Union and fallback ---
@@ -228,7 +302,8 @@ export type ParsedDocument =
   | ParsedGitHubPR
   | ParsedDashboard
   | ParsedTable
-  | ParsedLog;
+  | ParsedLog
+  | ParsedDiff;
 
 export interface ParsedText {
   kind: "text";
@@ -237,3 +312,4 @@ export interface ParsedText {
 }
 
 export type AnyParsed = ParsedDocument | ParsedText;
+export type AnyParsedKind = AnyParsed["kind"];
