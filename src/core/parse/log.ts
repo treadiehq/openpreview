@@ -89,7 +89,7 @@ export function looksLikeLog(raw: string): boolean {
   }
 
   if (jsonMatches >= 2) return true;
-  if (structuredMatches >= 3 && structuredMatches / lines.length >= 0.35) return true;
+  if (structuredMatches >= 3 && structuredMatches / lines.length >= 0.35 && levelMatches >= 1) return true;
   if (timestampMatches >= 2 && levelMatches >= 2) return true;
   if (levelMatches >= 3 && continuationMatches >= 1) return true;
   return false;

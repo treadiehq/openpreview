@@ -144,11 +144,15 @@ export async function runSelfUpdate(args: string[]): Promise<void> {
     console.log(`Downloading ${target.assetName}...`);
     await downloadAsset(release.asset, archivePath, token);
 
-    if (release.checksumAsset) {
-      const checksumPath = join(tempDir, `${target.assetName}.sha256`);
-      await downloadAsset(release.checksumAsset, checksumPath, token);
-      await verifyChecksum(archivePath, checksumPath);
+    if (!release.checksumAsset) {
+      throw new Error(
+        `Release ${release.tagName} is missing checksum file ${target.assetName}.sha256. ` +
+          "Refusing to install unverified binary.",
+      );
     }
+    const checksumPath = join(tempDir, `${target.assetName}.sha256`);
+    await downloadAsset(release.checksumAsset, checksumPath, token);
+    await verifyChecksum(archivePath, checksumPath);
 
     await extractArchive(archivePath, tempDir);
     await installBinary(binaryPath, executablePath);

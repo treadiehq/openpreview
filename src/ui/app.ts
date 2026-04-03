@@ -68,7 +68,6 @@ export async function runApp(input: InputSource | null, options?: RunAppOptions)
       useAlternateScreen: true,
       ...rendererInputConfig,
     });
-    setupQuitKeys(renderer);
     const { runContentApp } = await import("./run-content.ts");
     runContentApp(renderer, loaded.doc, loaded.source, {
       truncated: loaded.inspectInfo.truncated,

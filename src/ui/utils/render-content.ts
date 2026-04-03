@@ -111,6 +111,7 @@ export function parseInlineMarkdown(text: string): Segment[] {
 export function wrapText(s: string, width: number): string[] {
   if (width <= 0) return [s];
   if (s.length <= width) return [s];
+  if (!s.trim()) return [" "];
   const out: string[] = [];
   const words = s.split(/\s+/);
   let line = "";

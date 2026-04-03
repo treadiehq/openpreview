@@ -81,10 +81,17 @@ async function fetchUrl(url: string): Promise<FetchResult> {
   }
 }
 
+function trimToFirstBytes(text: string, maxBytes: number): string {
+  const buf = Buffer.from(text, "utf8");
+  if (buf.length <= maxBytes) return text;
+  const sliced = buf.subarray(0, maxBytes);
+  return sliced.toString("utf8").replace(/\uFFFD$/, "");
+}
+
 function buildFetchResult(content: string): FetchResult {
   const totalBytes = Buffer.byteLength(content, "utf8");
   const truncated = totalBytes > MAX_CONTENT_SIZE_BYTES;
-  const displayedContent = truncated ? content.slice(0, MAX_CONTENT_SIZE_BYTES) : content;
+  const displayedContent = truncated ? trimToFirstBytes(content, MAX_CONTENT_SIZE_BYTES) : content;
 
   return {
     content: displayedContent,

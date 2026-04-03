@@ -138,55 +138,53 @@ export function runStreamApp(
     refreshInFlight = true;
     const revision = ++renderRevision;
 
-    const snapshot = buffer;
-    const view = await buildStreamView(renderer, snapshot.content, source, forcedMode, ended, streamError);
+    try {
+      const snapshot = buffer;
+      const view = await buildStreamView(renderer, snapshot.content, source, forcedMode, ended, streamError);
 
-    if (destroyed || revision !== renderRevision) {
+      if (destroyed || revision !== renderRevision) return;
+
+      const modeLabel = `${forcedMode === "auto" ? "Detected" : "Forced"}: ${formatModeLabel(
+        forcedMode === "auto" ? view.detectedType : forcedMode,
+      )}`;
+      const header = Header({
+        title: getStreamTitle(view.doc),
+        sourceLabel: source.label ?? source.value,
+        subtitle: buildSubtitle(view.doc, snapshot, ended, streamError, Boolean(terminalKeyInput)),
+        status: statusMessage || (streamError ? `Stream error: ${streamError}` : ended ? "Stream ended" : undefined),
+        modeLabel,
+      });
+
+      const body = helpOpen ? buildHelpOverlay() : view.body;
+      const footerKeys: ShortcutKey[] = terminalKeyInput ? ["q", "y", "?"] : [];
+
+      for (const child of renderer.root.getChildren()) renderer.root.remove(child.id);
+      renderer.root.add(
+        Box(
+          {
+            flexDirection: "column",
+            width: "100%",
+            height: "100%",
+            backgroundColor: theme.bg,
+            gap: 0,
+          },
+          header,
+          Box({ flexGrow: 1, flexShrink: 1, overflow: "hidden" }, body),
+          Footer({ keys: footerKeys }),
+        ),
+      );
+      if ((view.doc.kind === "log" || view.doc.kind === "text") && view.contentScrollBox) {
+        view.contentScrollBox.scrollTo(Number.MAX_SAFE_INTEGER);
+      }
+    } catch (error) {
+      streamError = (error as Error).message;
+      scheduleRefresh();
+    } finally {
       refreshInFlight = false;
       if (needsRefresh) {
         needsRefresh = false;
         void refreshLayout();
       }
-      return;
-    }
-
-    const modeLabel = `${forcedMode === "auto" ? "Detected" : "Forced"}: ${formatModeLabel(
-      forcedMode === "auto" ? view.detectedType : forcedMode,
-    )}`;
-    const header = Header({
-      title: getStreamTitle(view.doc),
-      sourceLabel: source.label ?? source.value,
-      subtitle: buildSubtitle(view.doc, snapshot, ended, streamError, Boolean(terminalKeyInput)),
-      status: statusMessage || (streamError ? `Stream error: ${streamError}` : ended ? "Stream ended" : undefined),
-      modeLabel,
-    });
-
-    const body = helpOpen ? buildHelpOverlay() : view.body;
-    const footerKeys: ShortcutKey[] = terminalKeyInput ? ["q", "y", "?"] : [];
-
-    for (const child of renderer.root.getChildren()) renderer.root.remove(child.id);
-    renderer.root.add(
-      Box(
-        {
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          backgroundColor: theme.bg,
-          gap: 0,
-        },
-        header,
-        Box({ flexGrow: 1, flexShrink: 1, overflow: "hidden" }, body),
-        Footer({ keys: footerKeys }),
-      ),
-    );
-    if ((view.doc.kind === "log" || view.doc.kind === "text") && view.contentScrollBox) {
-      view.contentScrollBox.scrollTo(Number.MAX_SAFE_INTEGER);
-    }
-
-    refreshInFlight = false;
-    if (needsRefresh) {
-      needsRefresh = false;
-      void refreshLayout();
     }
   }
 

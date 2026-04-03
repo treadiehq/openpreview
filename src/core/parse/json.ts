@@ -160,6 +160,14 @@ function detectErrorSummary(root: unknown): string | undefined {
     return error;
   }
 
+  if (record.success === true) {
+    const hasErrorContent = typeof record.error === "string" && record.error.length > 0;
+    const hasErrorsContent = Array.isArray(record.errors) && record.errors.length > 0;
+    if (!hasErrorContent && !hasErrorsContent) {
+      return undefined;
+    }
+  }
+
   if (error && ("error" in record || "errors" in record || "message" in record)) {
     return error;
   }

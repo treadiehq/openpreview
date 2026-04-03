@@ -60,7 +60,8 @@ export function openURL(url: string): boolean {
       return true;
     }
     if (platform === "win32") {
-      Bun.spawn(["cmd", "/c", "start", "", url], { stdout: "ignore", stderr: "ignore" });
+      const escaped = url.replace(/[&|<>()^%"]/g, "^$&");
+      Bun.spawn(["cmd", "/c", "start", "", escaped], { stdout: "ignore", stderr: "ignore" });
       return true;
     }
   } catch {

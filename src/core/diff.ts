@@ -347,7 +347,7 @@ function diffJsonValue(
       counter.count++;
       if (counter.count >= MAX_JSON_DIFF_ENTRIES) return;
     }
-    const max = Math.min(Math.max(left.length, right.length), 20);
+    const max = Math.max(left.length, right.length);
     for (let index = 0; index < max; index++) {
       diffJsonValue(left[index], right[index], `${path}[${index}]`, entries, counter);
       if (counter.count >= MAX_JSON_DIFF_ENTRIES) return;

@@ -168,11 +168,11 @@ say ""
 curl_download "${BASE_DOWNLOAD_URL}" -o "${ARCHIVE_PATH}" \
   || fail "Download failed. Release asset ${ASSET_NAME} was not found for ${TAG}. If the repo is private, set OPENPREVIEW_GITHUB_TOKEN or GITHUB_TOKEN."
 
-if curl_download "${CHECKSUM_URL}" -o "${CHECKSUM_PATH}"; then
-  EXPECTED_SHA="$(awk 'NR==1 {print $1}' "${CHECKSUM_PATH}")"
-  ACTUAL_SHA="$(sha256_file "${ARCHIVE_PATH}")"
-  [ "${EXPECTED_SHA}" = "${ACTUAL_SHA}" ] || fail "Checksum verification failed for ${ASSET_NAME}."
-fi
+curl_download "${CHECKSUM_URL}" -o "${CHECKSUM_PATH}" \
+  || fail "Checksum file not found for ${ASSET_NAME}. Refusing to install unverified binary."
+EXPECTED_SHA="$(awk 'NR==1 {print $1}' "${CHECKSUM_PATH}")"
+ACTUAL_SHA="$(sha256_file "${ARCHIVE_PATH}")"
+[ "${EXPECTED_SHA}" = "${ACTUAL_SHA}" ] || fail "Checksum verification failed for ${ASSET_NAME}."
 
 tar -xzf "${ARCHIVE_PATH}" -C "${cleanup_dir}"
 mkdir -p "${INSTALL_DIR}"
