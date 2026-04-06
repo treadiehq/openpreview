@@ -27,6 +27,7 @@ Usage:
   <command> | preview         Preview piped input (e.g. curl ... | preview, cat file | preview)
   <command> | preview --follow
   preview diff <left> <right> Compare two URLs, files, or captures
+  preview render <url>        Render a website visually in the terminal
   preview skill <url|file>   Export supported content as a reusable skill bundle
   preview update             Download and install the latest release
 
@@ -38,6 +39,7 @@ Examples:
   docker logs -f app | preview --follow
   preview diff fixtures/sample.json fixtures/sample.json
   preview diff --left-cmd "kubectl get pods -o json" fixtures/sample.json
+  preview render https://example.com
   preview --mode docs https://planetscale.com
   preview --mode table fixtures/sample-table.txt
   preview --mode log fixtures/sample-log.txt
@@ -127,6 +129,10 @@ async function main() {
     await runSelfUpdate(args.slice(1));
     return;
   }
+  if (args[0] === "render") {
+    await runRenderCommand(args.slice(1));
+    return;
+  }
   if (args[0] === "diff") {
     await runDiffCommand(args.slice(1));
     return;
@@ -137,6 +143,10 @@ async function main() {
   }
   if (args[0] === "help" && args[1] === "update") {
     console.log(getUpdateHelp());
+    process.exit(0);
+  }
+  if (args[0] === "help" && args[1] === "render") {
+    showRenderHelp();
     process.exit(0);
   }
   if (args[0] === "help" && args[1] === "skill") {
@@ -182,6 +192,136 @@ async function main() {
   }
 
   await runApp(input, { mode: parsed.mode, inspect: parsed.inspect, follow: parsed.follow });
+}
+
+function showRenderHelp() {
+  console.log(`
+OpenPreview render — visual website preview in your terminal
+
+Usage:
+  preview render <url>
+
+Examples:
+  preview render https://example.com
+  preview render https://github.com
+  preview render https://news.ycombinator.com
+
+Requirements:
+  Playwright is required for browser rendering. Install it with:
+
+    bun add playwright
+    bunx playwright install chromium
+
+In-app:
+  ↑ / ↓          Scroll the rendered page
+  q / Esc         Quit
+`);
+}
+
+async function runRenderCommand(args: string[]) {
+  if (args.includes("--help") || args.includes("-h")) {
+    showRenderHelp();
+    process.exit(0);
+  }
+  if (args.includes("--version") || args.includes("-v")) {
+    showVersion();
+    process.exit(0);
+  }
+
+  const url = args.find((a) => !a.startsWith("-"));
+  if (!url || !/^https?:\/\//i.test(url)) {
+    console.error(
+      "OpenPreview error: `preview render` requires an http(s) URL.\n\n" +
+        "Usage: preview render <url>\n" +
+        "Example: preview render https://example.com",
+    );
+    process.exit(1);
+  }
+
+  const renderer = await createCliRenderer({ exitOnCtrlC: true, useAlternateScreen: true });
+  const { isPlainKey, isEscapeKey } = await import("./ui/key-events.ts");
+
+  const quitHandler = (key: any) => {
+    if (isPlainKey(key, "q") || isEscapeKey(key)) {
+      renderer.destroy();
+      process.exit(0);
+    }
+  };
+  renderer.keyInput.on("keypress", quitHandler);
+
+  const { LoadingScreen, SPINNER_FRAME_COUNT } = await import("./ui/screens/loading.ts");
+  const { Box } = await import("@opentui/core");
+  const { Header } = await import("./ui/components/header.ts");
+  const { Footer } = await import("./ui/components/footer.ts");
+  const { theme } = await import("./ui/theme.ts");
+
+  function buildRenderLayout(body: ReturnType<typeof Box>) {
+    return Box(
+      {
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        backgroundColor: theme.bg,
+        gap: 0,
+      },
+      Header({ title: "OpenPreview", subtitle: "render", sourceLabel: `URL · ${url}` }),
+      Box({ flexGrow: 1, flexShrink: 1, overflow: "hidden" }, body),
+      Footer({ keys: ["q", "?"] }),
+    );
+  }
+
+  let spinnerFrame = 0;
+  let loadingLayout = buildRenderLayout(LoadingScreen(0));
+  renderer.root.add(loadingLayout);
+  const spinnerInterval = setInterval(() => {
+    spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAME_COUNT;
+    for (const child of renderer.root.getChildren()) renderer.root.remove(child.id);
+    loadingLayout = buildRenderLayout(LoadingScreen(spinnerFrame));
+    renderer.root.add(loadingLayout);
+  }, 80);
+
+  try {
+    const { renderWebPageSegments } = await import("./core/render.ts");
+    const result = await renderWebPageSegments(url, renderer.width - 1, renderer.height);
+    clearInterval(spinnerInterval);
+    for (const child of renderer.root.getChildren()) renderer.root.remove(child.id);
+    renderer.keyInput.off("keypress", quitHandler);
+
+    const { RenderScreenSegments } = await import("./ui/screens/render.ts");
+    const screen = RenderScreenSegments(renderer, result.rows);
+
+    const layout = Box(
+      {
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        backgroundColor: theme.bg,
+        gap: 0,
+      },
+      Header({
+        title: "Render",
+        subtitle: `${result.imageWidth}×${result.imageHeight}px → ${result.rows.length} rows`,
+        sourceLabel: `URL · ${result.url}`,
+      }),
+      Box({ flexGrow: 1, flexShrink: 1, overflow: "hidden" }, screen.body),
+      Footer({ keys: ["q"] }),
+    );
+    renderer.root.add(layout);
+
+    renderer.keyInput.on("keypress", (key: any) => {
+      if (isPlainKey(key, "q") || isEscapeKey(key)) {
+        renderer.destroy();
+        process.exit(0);
+      }
+    });
+  } catch (e) {
+    clearInterval(spinnerInterval);
+    for (const child of renderer.root.getChildren()) renderer.root.remove(child.id);
+
+    const { ErrorScreen } = await import("./ui/screens/error.ts");
+    const errorLayout = buildRenderLayout(ErrorScreen((e as Error).message));
+    renderer.root.add(errorLayout);
+  }
 }
 
 async function runSkillExport(args: string[]) {

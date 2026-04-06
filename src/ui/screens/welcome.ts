@@ -10,6 +10,7 @@ const usageLines: [string, string][] = [
   ["curl <api-url> | preview", "Preview an API response"],
   ["docker logs app | preview", "Preview log output"],
   ["preview diff before.json after.json", "Compare two captures"],
+  ["preview render <url>", "Render a website visually"],
 ];
 
 type WelcomeLayout = {

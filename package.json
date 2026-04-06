@@ -33,7 +33,8 @@
   "dependencies": {
     "@opentui/core": "^0.1.87",
     "cheerio": "^1.0.0",
-    "marked": "^15.0.0"
+    "marked": "^15.0.0",
+    "playwright": "^1.59.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
