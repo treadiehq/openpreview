@@ -1,6 +1,6 @@
 {
   "name": "openpreview",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "OpenPreview — terminal-native preview for URLs, markdown, JSON, and command output",
   "type": "module",
   "main": "dist/cli.js",

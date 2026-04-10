@@ -37,6 +37,7 @@ export function runStreamApp(
   let helpOpen = false;
   let ended = false;
   let streamError: string | null = null;
+  let lastErrorContent: string | null = null;
   let refreshScheduled = false;
   let refreshInFlight = false;
   let needsRefresh = false;
@@ -46,6 +47,7 @@ export function runStreamApp(
 
   const onData = (chunk: string | Buffer) => {
     buffer = appendStreamChunk(buffer, String(chunk), maxBufferBytes);
+    lastErrorContent = null;
     scheduleRefresh();
   };
 
@@ -137,9 +139,9 @@ export function runStreamApp(
 
     refreshInFlight = true;
     const revision = ++renderRevision;
+    const snapshot = buffer;
 
     try {
-      const snapshot = buffer;
       const view = await buildStreamView(renderer, snapshot.content, source, forcedMode, ended, streamError);
 
       if (destroyed || revision !== renderRevision) return;
@@ -177,6 +179,10 @@ export function runStreamApp(
         view.contentScrollBox.scrollTo(Number.MAX_SAFE_INTEGER);
       }
     } catch (error) {
+      if (lastErrorContent === snapshot.content) {
+        return;
+      }
+      lastErrorContent = snapshot.content;
       streamError = (error as Error).message;
       scheduleRefresh();
     } finally {
