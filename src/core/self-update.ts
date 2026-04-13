@@ -352,6 +352,10 @@ async function installBinary(downloadedBinaryPath: string, targetPath: string): 
   await Bun.write(tempTargetPath, Bun.file(downloadedBinaryPath));
   await chmod(tempTargetPath, 0o755);
 
+  if (process.platform === "darwin") {
+    await adHocSign(tempTargetPath);
+  }
+
   try {
     await rename(tempTargetPath, targetPath);
   } catch (error) {
@@ -361,6 +365,15 @@ async function installBinary(downloadedBinaryPath: string, targetPath: string): 
     }
     throw error;
   }
+}
+
+async function adHocSign(binaryPath: string): Promise<void> {
+  if (!Bun.which("codesign")) return;
+  const proc = Bun.spawn(["codesign", "--sign", "-", "--force", binaryPath], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  await proc.exited;
 }
 
 function isPermissionError(error: unknown): boolean {
