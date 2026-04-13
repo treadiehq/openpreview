@@ -177,6 +177,10 @@ ACTUAL_SHA="$(sha256_file "${ARCHIVE_PATH}")"
 tar -xzf "${ARCHIVE_PATH}" -C "${cleanup_dir}"
 mkdir -p "${INSTALL_DIR}"
 
+if [ "${OS}" = "darwin" ] && command -v codesign >/dev/null 2>&1; then
+  codesign --sign - --force "${cleanup_dir}/${APP_NAME}" 2>/dev/null || true
+fi
+
 if command -v install >/dev/null 2>&1; then
   install -m 755 "${cleanup_dir}/${APP_NAME}" "${INSTALL_DIR}/${APP_NAME}"
 else
