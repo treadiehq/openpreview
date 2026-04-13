@@ -65,8 +65,11 @@ build_one() {
   bun build --compile --target="${BUN_TARGET}" src/cli.ts --outfile "${BIN_PATH}"
 
   if [ "${OS}" = "darwin" ] && command -v codesign >/dev/null 2>&1; then
-    codesign --sign - --force "${BIN_PATH}"
-    echo "Ad-hoc signed ${BIN_PATH}"
+    if codesign --sign - --force "${BIN_PATH}" 2>/dev/null; then
+      echo "Ad-hoc signed ${BIN_PATH}"
+    else
+      echo "Warning: codesign failed, binary may need manual signing on macOS"
+    fi
   fi
 
   tar -C "${TMP_DIR}" -czf "${ARCHIVE_PATH}" "${APP_NAME}"
