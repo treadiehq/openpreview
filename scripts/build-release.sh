@@ -64,6 +64,11 @@ build_one() {
   cd "${ROOT_DIR}"
   bun build --compile --target="${BUN_TARGET}" src/cli.ts --outfile "${BIN_PATH}"
 
+  if [ "${OS}" = "darwin" ] && command -v codesign >/dev/null 2>&1; then
+    codesign --sign - --force "${BIN_PATH}"
+    echo "Ad-hoc signed ${BIN_PATH}"
+  fi
+
   tar -C "${TMP_DIR}" -czf "${ARCHIVE_PATH}" "${APP_NAME}"
   printf '%s  %s\n' "$(sha256_file "${ARCHIVE_PATH}")" "$(basename "${ARCHIVE_PATH}")" > "${CHECKSUM_PATH}"
   echo "Created ${ARCHIVE_PATH}"
