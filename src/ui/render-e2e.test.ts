@@ -7,6 +7,8 @@ import { VERSION } from "../core/version.ts";
 import { Footer } from "./components/footer.ts";
 import { runContentApp } from "./run-content.ts";
 import { WelcomeScreen } from "./screens/welcome.ts";
+import { SearchScreen } from "./screens/search.ts";
+import { searchContent, getSearchableContent } from "./state.ts";
 
 describe("content rendering", () => {
   test("renders the welcome screen cleanly at multiple terminal widths", async () => {
@@ -254,6 +256,179 @@ describe("content rendering", () => {
       expect(frame).toContain("Parsed mode changed");
       expect(frame).toContain("sample-log.txt");
       expect(frame).toContain("sample-table.txt");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("search screen shows input bar and results with highlights", async () => {
+    const loaded = await loadPreview({
+      type: "file",
+      value: "fixtures/sample.md",
+      label: "sample.md",
+    });
+
+    const content = getSearchableContent(loaded.doc);
+    const contentLines = content.split("\n");
+    const results = searchContent(content, "Section");
+
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 100,
+      height: 30,
+    });
+
+    try {
+      const screen = SearchScreen(renderer, {
+        query: "Section",
+        results,
+        selectedIndex: 0,
+        contentLines,
+      });
+
+      renderer.root.add(
+        Box(
+          { flexDirection: "column", width: "100%", height: "100%" },
+          screen.body,
+        ),
+      );
+
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("/");
+      expect(frame).toContain("Section");
+      expect(frame).toContain("Esc close");
+      expect(frame).toContain("Enter jump");
+      expect(frame).toContain("match");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("search screen shows empty state for no query", async () => {
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 80,
+      height: 24,
+    });
+
+    try {
+      const screen = SearchScreen(renderer, {
+        query: "",
+        results: [],
+        selectedIndex: 0,
+        contentLines: ["line one", "line two"],
+      });
+
+      renderer.root.add(
+        Box(
+          { flexDirection: "column", width: "100%", height: "100%" },
+          screen.body,
+        ),
+      );
+
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("Type to search");
+      expect(frame).toContain("Search");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("search screen shows no matches message", async () => {
+    const { renderer, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 80,
+      height: 24,
+    });
+
+    try {
+      const screen = SearchScreen(renderer, {
+        query: "zzzznotfound",
+        results: [],
+        selectedIndex: 0,
+        contentLines: ["line one", "line two"],
+      });
+
+      renderer.root.add(
+        Box(
+          { flexDirection: "column", width: "100%", height: "100%" },
+          screen.body,
+        ),
+      );
+
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("No matches");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("pressing / opens the search screen", async () => {
+    const loaded = await loadPreview({
+      type: "file",
+      value: "fixtures/sample.md",
+      label: "sample.md",
+    });
+
+    const { renderer, mockInput, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 100,
+      height: 30,
+    });
+
+    try {
+      runContentApp(renderer, loaded.doc, loaded.source, {
+        truncated: loaded.inspectInfo.truncated,
+        inspectInfo: loaded.inspectInfo,
+      });
+
+      await renderOnce();
+      const beforeSearch = captureCharFrame();
+      expect(beforeSearch).toContain("Sample Markdown");
+      expect(beforeSearch).not.toContain("Type to search");
+
+      mockInput.pressKey("/");
+      await renderOnce();
+      const searchFrame = captureCharFrame();
+      expect(searchFrame).toContain("Type to search");
+      expect(searchFrame).toContain("Esc close");
+      expect(searchFrame).toContain("Enter jump");
+    } finally {
+      renderer.destroy();
+    }
+  });
+
+  test("typing in search screen shows live results", async () => {
+    const loaded = await loadPreview({
+      type: "file",
+      value: "fixtures/sample.md",
+      label: "sample.md",
+    });
+
+    const { renderer, mockInput, renderOnce, captureCharFrame } = await createTestRenderer({
+      width: 100,
+      height: 30,
+    });
+
+    try {
+      runContentApp(renderer, loaded.doc, loaded.source, {
+        truncated: loaded.inspectInfo.truncated,
+        inspectInfo: loaded.inspectInfo,
+      });
+
+      await renderOnce();
+
+      mockInput.pressKey("/");
+      await renderOnce();
+
+      await mockInput.typeText("Section");
+      await renderOnce();
+      const frame = captureCharFrame();
+
+      expect(frame).toContain("Section");
+      expect(frame).toContain("match");
     } finally {
       renderer.destroy();
     }

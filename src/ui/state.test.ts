@@ -1,30 +1,40 @@
 import { describe, expect, test } from "bun:test";
-import { runSearch, getSearchableContent, searchMatchToLine, initialAppState } from "./state.ts";
+import { searchContent, getSearchableContent, initialAppState } from "./state.ts";
 import type { AnyParsed } from "../core/models.ts";
 
-describe("runSearch", () => {
-  test("finds all occurrences", () => {
-    const matches = runSearch("hello world hello", "hello");
-    expect(matches).toEqual([0, 12]);
+describe("searchContent", () => {
+  test("finds all occurrences with line info", () => {
+    const results = searchContent("hello world\ngoodbye hello", "hello");
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({ lineNumber: 0, colStart: 0, matchLength: 5 });
+    expect(results[1]).toMatchObject({ lineNumber: 1, colStart: 8, matchLength: 5 });
   });
 
   test("case-insensitive", () => {
-    const matches = runSearch("Hello HELLO hello", "hello");
-    expect(matches).toHaveLength(3);
+    const results = searchContent("Hello\nHELLO\nhello", "hello");
+    expect(results).toHaveLength(3);
   });
 
   test("returns empty for empty query", () => {
-    expect(runSearch("content", "")).toEqual([]);
-    expect(runSearch("content", "   ")).toEqual([]);
+    expect(searchContent("content", "")).toEqual([]);
+    expect(searchContent("content", "   ")).toEqual([]);
   });
 
   test("returns empty for no matches", () => {
-    expect(runSearch("abc", "xyz")).toEqual([]);
+    expect(searchContent("abc", "xyz")).toEqual([]);
   });
 
-  test("handles overlapping patterns", () => {
-    const matches = runSearch("aaa", "aa");
-    expect(matches).toEqual([0, 1]);
+  test("finds multiple matches on same line", () => {
+    const results = searchContent("aa aa aa", "aa");
+    expect(results).toHaveLength(3);
+    expect(results.every((r) => r.lineNumber === 0)).toBe(true);
+  });
+
+  test("includes correct line text", () => {
+    const results = searchContent("first line\nsecond line\nthird line", "second");
+    expect(results).toHaveLength(1);
+    expect(results[0].line).toBe("second line");
+    expect(results[0].lineNumber).toBe(1);
   });
 });
 
@@ -66,34 +76,13 @@ describe("getSearchableContent", () => {
   });
 });
 
-describe("searchMatchToLine", () => {
-  test("returns 0 for offset on first line", () => {
-    expect(searchMatchToLine("hello world", 5)).toBe(0);
-  });
-
-  test("counts newlines before offset", () => {
-    expect(searchMatchToLine("line1\nline2\nline3", 6)).toBe(1);
-    expect(searchMatchToLine("line1\nline2\nline3", 12)).toBe(2);
-  });
-
-  test("returns 0 for offset 0", () => {
-    expect(searchMatchToLine("any content", 0)).toBe(0);
-  });
-
-  test("handles offset beyond content length", () => {
-    expect(searchMatchToLine("a\nb", 100)).toBe(1);
-  });
-
-  test("handles empty content", () => {
-    expect(searchMatchToLine("", 0)).toBe(0);
-  });
-});
-
 describe("initialAppState", () => {
   test("has correct defaults", () => {
     expect(initialAppState.searchOpen).toBe(false);
     expect(initialAppState.searchQuery).toBe("");
-    expect(initialAppState.searchMatches).toEqual([]);
+    expect(initialAppState.searchResults).toEqual([]);
+    expect(initialAppState.searchSelectedIndex).toBe(0);
+    expect(initialAppState.searchJumpMatch).toBeNull();
     expect(initialAppState.jsonViewMode).toBe("structured");
     expect(initialAppState.paletteOpen).toBe(false);
     expect(initialAppState.focusIndex).toBe(0);

@@ -14,13 +14,13 @@ import { theme } from "./theme.ts";
 import { Footer } from "./components/footer.ts";
 import type { ShortcutKey } from "./components/footer.ts";
 import { CommandPalette } from "./components/command-palette.ts";
-import type { AppState } from "./state.ts";
+import type { AppState, SearchResult } from "./state.ts";
 import {
   getSearchableContent,
-  runSearch,
-  searchMatchToLine,
+  searchContent,
   initialAppState,
 } from "./state.ts";
+import { SearchScreen } from "./screens/search.ts";
 import { copyToClipboard, openURL } from "../utils/platform.ts";
 import { getHeader } from "./app.ts";
 import { isEscapeKey, isPlainKey, isTabKey, type KeyPressLike } from "./key-events.ts";
@@ -100,31 +100,45 @@ export function runContentApp(
       if (first) renderer.root.remove(first.id);
     }
     const searchableContent = getSearchableContent(currentDoc);
+    const contentLines = searchableContent.split("\n");
     const canExportSkill = supportsSkillExport(currentDoc);
-    const searchState = state.searchOpen
-      ? {
-          open: true as const,
-          query: state.searchQuery,
-          totalMatches: state.searchMatches.length,
-          currentIndex: Math.max(0, state.searchIndex),
-        }
-      : undefined;
-    const header = getHeader(currentDoc, currentSource, searchState, statusMessage, currentTruncated, currentInspectInfo);
+
+    if (state.searchOpen) {
+      const searchScreen = SearchScreen(renderer, {
+        query: state.searchQuery,
+        results: state.searchResults,
+        selectedIndex: state.searchSelectedIndex,
+        contentLines,
+      });
+
+      const header = getHeader(currentDoc, currentSource, undefined, statusMessage, currentTruncated, currentInspectInfo);
+
+      rootLayout = Box(
+        {
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          backgroundColor: theme.bg,
+          gap: 0,
+        },
+        header,
+        Box(
+          { flexGrow: 1, flexShrink: 1, overflow: "hidden" },
+          searchScreen.body,
+        ),
+      );
+
+      renderer.root.add(rootLayout);
+      return;
+    }
+
+    const header = getHeader(currentDoc, currentSource, undefined, statusMessage, currentTruncated, currentInspectInfo);
     const notices = currentInspectInfo ? buildContentNotices(currentDoc, currentSource, currentInspectInfo) : [];
     const noticeBar = notices.length > 0 ? buildNoticeBar(renderer.width, notices) : null;
-
-    let searchScrollLine: number | undefined;
-    if (state.searchOpen && state.searchMatches.length > 0 && state.searchIndex >= 0) {
-      const charOffset = state.searchMatches[state.searchIndex];
-      if (charOffset !== undefined) {
-        searchScrollLine = searchMatchToLine(searchableContent, charOffset);
-      }
-    }
 
     const screen = getScreen(renderer, currentDoc, {
       jsonViewMode: state.jsonViewMode,
       focusIndex: state.focusIndex,
-      searchScrollLine,
     });
     currentScreen = screen;
 
@@ -174,7 +188,7 @@ export function runContentApp(
     const footer = Footer({ keys: footerKeys });
 
     const paletteCommands = [
-      { name: "Search", description: "Focus search", value: "search" },
+      { name: "Search", description: "Open search", value: "search" },
       { name: "Copy current item", description: "Copy the focused item or section", value: "copy" },
       { name: "Copy full content", description: "Copy the full extracted content", value: "copy-all" },
       ...(canExportSkill
@@ -202,7 +216,12 @@ export function runContentApp(
       paletteRow = cp.box;
       paletteSelect = cp.select;
       cp.select.on("itemSelected", (_i: number, opt: { value: string }) => {
-        if (opt.value === "search") state.searchOpen = true;
+        if (opt.value === "search") {
+          state.searchOpen = true;
+          state.searchQuery = "";
+          state.searchResults = [];
+          state.searchSelectedIndex = 0;
+        }
         if (opt.value === "copy") void doContextCopy();
         if (opt.value === "copy-all") void doCopyAll();
         if (opt.value === "skill") void doExportSkill();
@@ -229,9 +248,9 @@ export function runContentApp(
       const bindings = [
         ["q / Esc", "Quit (or close overlay)"],
         ["/", "Open search"],
-        ["Esc", "Close search"],
-        ["Enter / Ctrl+n", "Next search match"],
-        ["N / Ctrl+p", "Previous search match"],
+        ["Esc", "Close search / return to content"],
+        ["↑ / ↓", "Navigate search results"],
+        ["Enter", "Jump to selected match"],
         ["Ctrl+p", "Open command palette"],
         ["Tab", "Cycle focus between panes"],
         ["y", "Copy current item"],
@@ -239,7 +258,6 @@ export function runContentApp(
         ["r", "Toggle raw JSON (JSON only)"],
         ["i", "Toggle inspect"],
         ["?", "Toggle this help"],
-        ["↑ / ↓", "Navigate list items"],
       ];
       if (navigationHistory.length > 0) {
         bindings.splice(9, 0, ["b", "Back to previous page"]);
@@ -296,8 +314,9 @@ export function runContentApp(
 
     renderer.root.add(rootLayout);
 
-    if (searchScrollLine !== undefined && screen.contentScrollBox) {
-      screen.contentScrollBox.scrollTo(searchScrollLine);
+    if (state.searchJumpMatch && screen.contentScrollBox) {
+      screen.contentScrollBox.scrollTo(state.searchJumpMatch.lineNumber);
+      state.searchJumpMatch = null;
     }
 
     if (state.paletteOpen && paletteSelect) paletteSelect.focus();
@@ -411,8 +430,8 @@ export function runContentApp(
       state.focusIndex = 0;
       state.searchOpen = false;
       state.searchQuery = "";
-      state.searchMatches = [];
-      state.searchIndex = 0;
+      state.searchResults = [];
+      state.searchSelectedIndex = 0;
       inspectOpen = false;
       helpOpen = false;
       refreshLayout();
@@ -475,8 +494,8 @@ export function runContentApp(
       if (state.searchOpen) {
         state.searchOpen = false;
         state.searchQuery = "";
-        state.searchMatches = [];
-        state.searchIndex = 0;
+        state.searchResults = [];
+        state.searchSelectedIndex = 0;
         refreshLayout();
         return;
       }
@@ -510,32 +529,50 @@ export function runContentApp(
     if (state.searchOpen) {
       clearPendingSkillShortcut();
       const searchableContent = getSearchableContent(currentDoc);
+
       if (key.name === "backspace") {
         state.searchQuery = state.searchQuery.slice(0, -1);
-        state.searchMatches = runSearch(searchableContent, state.searchQuery);
-        state.searchIndex = state.searchMatches.length > 0 ? 0 : -1;
+        state.searchResults = searchContent(searchableContent, state.searchQuery);
+        state.searchSelectedIndex = 0;
         refreshLayout();
         return;
       }
-      if ((key.name === "return" || key.sequence === "\r") || (key.name === "n" && key.ctrl)) {
-        if (state.searchMatches.length > 0) {
-          state.searchIndex = (state.searchIndex + 1) % state.searchMatches.length;
+
+      if (key.name === "return" || key.sequence === "\r") {
+        const uniqueResults = deduplicateSearchResults(state.searchResults);
+        const selected = uniqueResults[state.searchSelectedIndex];
+        if (selected) {
+          state.searchOpen = false;
+          state.searchJumpMatch = selected;
           refreshLayout();
         }
         return;
       }
-      if (key.sequence === "N" || (key.name === "p" && key.ctrl)) {
-        if (state.searchMatches.length > 0) {
-          state.searchIndex =
-            (state.searchIndex - 1 + state.searchMatches.length) % state.searchMatches.length;
+
+      if (key.name === "up" || (key.name === "p" && key.ctrl)) {
+        const uniqueCount = deduplicateSearchResults(state.searchResults).length;
+        if (uniqueCount > 0) {
+          state.searchSelectedIndex =
+            (state.searchSelectedIndex - 1 + uniqueCount) % uniqueCount;
           refreshLayout();
         }
         return;
       }
+
+      if (key.name === "down" || (key.name === "n" && key.ctrl)) {
+        const uniqueCount = deduplicateSearchResults(state.searchResults).length;
+        if (uniqueCount > 0) {
+          state.searchSelectedIndex =
+            (state.searchSelectedIndex + 1) % uniqueCount;
+          refreshLayout();
+        }
+        return;
+      }
+
       if (key.sequence && key.sequence.length === 1 && key.sequence >= " ") {
         state.searchQuery += key.sequence;
-        state.searchMatches = runSearch(searchableContent, state.searchQuery);
-        state.searchIndex = state.searchMatches.length > 0 ? 0 : -1;
+        state.searchResults = searchContent(searchableContent, state.searchQuery);
+        state.searchSelectedIndex = 0;
         refreshLayout();
         return;
       }
@@ -566,8 +603,8 @@ export function runContentApp(
     if (isPlainKey(key, "/") && !state.paletteOpen) {
       state.searchOpen = true;
       state.searchQuery = "";
-      state.searchMatches = [];
-      state.searchIndex = 0;
+      state.searchResults = [];
+      state.searchSelectedIndex = 0;
       refreshLayout();
       return;
     }
@@ -909,4 +946,16 @@ function formatJsonPagination(pagination: NonNullable<Extract<AnyParsed, { kind:
     pagination.nextPath ? `next ${pagination.nextPath}` : "",
     pagination.hasMore !== undefined ? `hasMore ${String(pagination.hasMore)}` : "",
   ].filter(Boolean).join(" · ");
+}
+
+function deduplicateSearchResults(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<number>();
+  const out: SearchResult[] = [];
+  for (const r of results) {
+    if (!seen.has(r.lineNumber)) {
+      seen.add(r.lineNumber);
+      out.push(r);
+    }
+  }
+  return out;
 }
